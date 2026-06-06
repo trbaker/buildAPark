@@ -1077,10 +1077,11 @@ async function doSignIn() {
 
   try {
     // 1. Generate ArcGIS token
+    // Generate token with empty referer so it works from any origin
     const tokenParams = new URLSearchParams({
       username: user,
       password: pass,
-      referer: 'https://www.arcgis.com',
+      client: 'requestip',
       expiration: 120,
       f: 'json'
     });
@@ -1101,7 +1102,7 @@ async function doSignIn() {
     arcgisToken    = tokenData.token;
     arcgisUsername = user;
 
-    sysLog('success', 'ArcGIS token acquired', `User: ${user}`);
+    sysLog('success', 'ArcGIS token acquired', `User: ${user}, expires: ${new Date(tokenData.expires).toLocaleTimeString()}`);
     // Token registered (IdentityManager not used with Leaflet)
 
     // 2. Build web map JSON
@@ -1202,6 +1203,7 @@ async function doSignIn() {
       { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: addParams.toString() }
     );
     const saveData = await saveRes.json();
+    sysLog('info', 'addItem response', JSON.stringify(saveData).slice(0, 200));
 
     if (saveData.success && saveData.id) {
       closeSignIn();
