@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌳 Build a Park v.7</title>
+<title>🌳 Build a Park v.8</title>
 
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -427,6 +427,106 @@
   }
   .save-status.show { transform: translateX(-50%) translateY(0); }
 
+  /* ── ERROR LOG ── */
+  .btn-log { background: linear-gradient(135deg, #546e7a, #263238); color: white; }
+
+  .log-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 1100;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(3px);
+  }
+  .log-overlay.open { display: flex; }
+
+  .log-window {
+    background: #1e272e;
+    border-radius: 16px;
+    width: min(760px, 95vw);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    overflow: hidden;
+    animation: popIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  .log-header {
+    background: #263238;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 2px solid #37474f;
+    flex-shrink: 0;
+  }
+  .log-header h3 {
+    font-family: 'Fredoka One', cursive;
+    color: #80cbc4;
+    font-size: 1.1rem;
+    flex: 1;
+    margin: 0;
+    letter-spacing: 0.5px;
+  }
+  .log-header-actions { display: flex; gap: 8px; }
+  .log-btn {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 0.8rem;
+    border: none;
+    border-radius: 20px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: filter 0.15s;
+  }
+  .log-btn:hover { filter: brightness(1.2); }
+  .log-btn-copy  { background: #37474f; color: #80cbc4; }
+  .log-btn-clear { background: #4e342e; color: #ef9a9a; }
+  .log-btn-close { background: #37474f; color: #cfd8dc; }
+
+  .log-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: #cfd8dc;
+  }
+  .log-body::-webkit-scrollbar { width: 6px; }
+  .log-body::-webkit-scrollbar-track { background: #263238; }
+  .log-body::-webkit-scrollbar-thumb { background: #546e7a; border-radius: 6px; }
+
+  .log-entry { margin-bottom: 4px; display: flex; gap: 10px; }
+  .log-entry.info  .log-tag { color: #80cbc4; }
+  .log-entry.warn  .log-tag { color: #ffcc02; }
+  .log-entry.error .log-tag { color: #ef5350; }
+  .log-entry.success .log-tag { color: #66bb6a; }
+  .log-tag { font-weight: 700; flex-shrink: 0; min-width: 70px; }
+  .log-time { color: #546e7a; flex-shrink: 0; }
+  .log-msg { color: #eceff1; word-break: break-all; }
+  .log-empty { color: #546e7a; font-style: italic; text-align: center; padding: 30px; }
+
+  .log-count {
+    background: #ef5350;
+    color: white;
+    border-radius: 50%;
+    font-size: 0.65rem;
+    font-weight: 900;
+    width: 18px;
+    height: 18px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    margin-left: -6px;
+    margin-top: -10px;
+    align-self: flex-start;
+  }
+  .log-count.visible { display: flex; }
+
   /* ── SCREENSHOT FLASH ── */
   .flash {
     position: fixed;
@@ -486,11 +586,15 @@
 
 <header>
   <span class="header-emoji">🌳</span>
-  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v.7</span></h1>
+  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v.8</span></h1>
   <div class="header-actions">
     <button class="btn btn-screenshot" onclick="takeScreenshot()">📸 Screenshot</button>
     <button class="btn btn-save" onclick="saveToArcGIS()">💾 Save to ArcGIS</button>
     <button class="btn btn-clear" onclick="clearAll()">🗑️ Clear All</button>
+    <div style="position:relative;display:flex;align-items:flex-start;">
+      <button class="btn btn-log" onclick="toggleLog()">🖥️ Error Log</button>
+      <span class="log-count" id="logCount">0</span>
+    </div>
   </div>
 </header>
 
@@ -629,6 +733,23 @@
   </div>
 </div>
 
+<!-- ERROR LOG WINDOW -->
+<div class="log-overlay" id="logOverlay">
+  <div class="log-window">
+    <div class="log-header">
+      <h3>🖥️ System Error Log</h3>
+      <div class="log-header-actions">
+        <button class="log-btn log-btn-copy" onclick="copyLog()">📋 Copy</button>
+        <button class="log-btn log-btn-clear" onclick="clearLog()">🗑️ Clear</button>
+        <button class="log-btn log-btn-close" onclick="toggleLog()">✕ Close</button>
+      </div>
+    </div>
+    <div class="log-body" id="logBody">
+      <div class="log-empty" id="logEmpty">No log entries yet.</div>
+    </div>
+  </div>
+</div>
+
 <!-- SCREENSHOT FLASH -->
 <div class="flash" id="flash"></div>
 
@@ -666,6 +787,7 @@ window.addEventListener('load', function() {
   }).addTo(view);
 
   document.getElementById('map-loading').style.display = 'none';
+  sysLog('success', 'Map loaded successfully', 'OpenStreetMap basemap via Leaflet');
   setupDrop();
 });
 
@@ -871,6 +993,7 @@ async function takeScreenshot() {
   ];
   hideEls.forEach(el => el.style.visibility = 'hidden');
 
+  sysLog('info', 'Screenshot started');
   try {
     // Capture map tiles + overlay with html2canvas
     const mapContainer = document.getElementById('mapContainer');
@@ -887,7 +1010,7 @@ async function takeScreenshot() {
     ctx.font = 'bold 22px "Fredoka One", cursive';
     ctx.fillStyle = 'rgba(46,125,50,0.85)';
     ctx.textAlign = 'left';
-    ctx.fillText('🌳 Build a Park v.7', 16, 32);
+    ctx.fillText('🌳 Build a Park v.8', 16, 32);
 
     // Restore hidden UI elements
     hideEls.forEach(el => el.style.visibility = '');
@@ -971,12 +1094,14 @@ async function doSignIn() {
     if (tokenData.error || !tokenData.token) {
       errEl.style.color = '#c62828';
       errEl.textContent = tokenData.error?.message || 'Invalid username or password. Please try again.';
+      sysLog('error', 'ArcGIS token failed', tokenData.error?.message || 'No token returned');
       return;
     }
 
     arcgisToken    = tokenData.token;
     arcgisUsername = user;
 
+    sysLog('success', 'ArcGIS token acquired', `User: ${user}`);
     // Token registered (IdentityManager not used with Leaflet)
 
     // 2. Build web map JSON
@@ -1067,7 +1192,7 @@ async function doSignIn() {
       title: title,
       type: 'Web Map',
       tags: 'park,playground,student design',
-      description: `A park design created by ${arcgisUsername} using Build a Park v.7`,
+      description: `A park design created by ${arcgisUsername} using Build a Park v.8`,
       text: JSON.stringify(webmapJson),
       snippet: `Park with ${placedItems.length} equipment items: ${[...new Set(placedItems.map(i=>i.label))].join(', ')}`
     });
@@ -1083,10 +1208,12 @@ async function doSignIn() {
       // Clear credentials for next use but keep map name blank
       document.getElementById('arcgisPass').value = '';
       document.getElementById('mapTitle').value = '';
+      sysLog('success', 'Web map saved to ArcGIS Online', `Item ID: ${saveData.id}`);
       const mapUrl = `https://www.arcgis.com/home/item.html?id=${saveData.id}`;
       showToast(`✅ "${title}" saved! Opening in ArcGIS...`, '#2e7d32');
       setTimeout(() => window.open(mapUrl, '_blank'), 1500);
     } else {
+      sysLog('error', 'ArcGIS addItem failed', JSON.stringify(saveData.error || saveData));
       throw new Error(saveData.error?.message || 'Save failed');
     }
   } catch(err) {
@@ -1202,6 +1329,86 @@ async function geocodeAndGo(text, magicKey) {
     showToast('❌ Search failed — check your connection.', '#c62828');
   }
 }
+
+// ─────────────────────────────────────────────
+//  ERROR LOG
+// ─────────────────────────────────────────────
+let logEntries = [];
+let errorCount = 0;
+
+function sysLog(level, message, detail) {
+  const now = new Date();
+  const time = now.toLocaleTimeString('en-US', { hour12: false });
+  const entry = { level, message, detail: detail || '', time };
+  logEntries.push(entry);
+
+  if (level === 'error' || level === 'warn') {
+    errorCount++;
+    const badge = document.getElementById('logCount');
+    badge.textContent = errorCount;
+    badge.classList.add('visible');
+  }
+
+  const body = document.getElementById('logBody');
+  const empty = document.getElementById('logEmpty');
+  if (empty) empty.remove();
+
+  const el = document.createElement('div');
+  el.className = `log-entry ${level}`;
+  const tagMap = { info: '[INFO]', warn: '[WARN]', error: '[ERROR]', success: '[OK]' };
+  el.innerHTML = `
+    <span class="log-time">${time}</span>
+    <span class="log-tag">${tagMap[level] || '[LOG]'}</span>
+    <span class="log-msg">${message}${detail ? ' — ' + detail : ''}</span>`;
+  body.appendChild(el);
+  body.scrollTop = body.scrollHeight;
+}
+
+function toggleLog() {
+  const overlay = document.getElementById('logOverlay');
+  overlay.classList.toggle('open');
+  if (overlay.classList.contains('open')) {
+    // Reset error badge when log is opened
+    errorCount = 0;
+    const badge = document.getElementById('logCount');
+    badge.classList.remove('visible');
+  }
+}
+
+function clearLog() {
+  logEntries = [];
+  errorCount = 0;
+  document.getElementById('logCount').classList.remove('visible');
+  const body = document.getElementById('logBody');
+  body.innerHTML = '<div class="log-empty" id="logEmpty">No log entries yet.</div>';
+}
+
+function copyLog() {
+  const text = logEntries.map(e => `${e.time} [${e.level.toUpperCase()}] ${e.message}${e.detail ? ' — ' + e.detail : ''}`).join('\n');
+  navigator.clipboard.writeText(text).then(() => showToast('📋 Log copied to clipboard!', '#546e7a'));
+}
+
+// Intercept console.error and console.warn
+const _origError = console.error;
+const _origWarn  = console.warn;
+const _origLog   = console.log;
+
+console.error = function(...args) {
+  sysLog('error', args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '));
+  _origError.apply(console, args);
+};
+console.warn = function(...args) {
+  sysLog('warn', args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '));
+  _origWarn.apply(console, args);
+};
+
+// Catch unhandled errors
+window.addEventListener('error', e => {
+  sysLog('error', e.message, `${e.filename}:${e.lineno}`);
+});
+window.addEventListener('unhandledrejection', e => {
+  sysLog('error', 'Unhandled Promise rejection', String(e.reason));
+});
 
 // ─────────────────────────────────────────────
 //  TOAST NOTIFICATION
