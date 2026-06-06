@@ -527,17 +527,30 @@ let view = null;
 require([
   "esri/Map",
   "esri/views/MapView",
+  "esri/layers/TileLayer",
+  "esri/Basemap",
   "esri/layers/FeatureLayer",
   "esri/identity/IdentityManager",
   "esri/portal/Portal",
   "esri/portal/PortalItem",
   "esri/layers/MediaLayer",
   "esri/geometry/Point"
-], function(Map, MapView, FeatureLayer, IdentityManager, Portal, PortalItem, MediaLayer, Point) {
+], function(Map, MapView, TileLayer, Basemap, FeatureLayer, IdentityManager, Portal, PortalItem, MediaLayer, Point) {
 
   window._esriModules = { IdentityManager, Portal, PortalItem, MediaLayer, Point, Map, MapView };
 
-  const map = new Map({ basemap: "topo-vector" });
+  const topoBasemap = new Basemap({
+    baseLayers: [
+      new TileLayer({
+        url: "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer",
+        title: "World Topographic Map"
+      })
+    ],
+    title: "Topographic",
+    id: "topo"
+  });
+
+  const map = new Map({ basemap: topoBasemap });
 
   view = new MapView({
     container: "viewDiv",
