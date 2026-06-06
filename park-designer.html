@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌳 Build a Park v.2</title>
+<title>🌳 Build a Park v.3</title>
 
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -495,7 +495,7 @@
 
 <header>
   <span class="header-emoji">🌳</span>
-  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v.2</span></h1>
+  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v.3</span></h1>
   <div class="header-actions">
     <button class="btn btn-screenshot" onclick="takeScreenshot()">📸 Screenshot</button>
     <button class="btn btn-save" onclick="saveToArcGIS()">💾 Save to ArcGIS</button>
@@ -641,7 +641,7 @@ let view = null;
 // ─────────────────────────────────────────────
 window.addEventListener('load', function() {
   // Leaflet map centered on USA
-  view = L.map('viewDiv', { zoomControl: true }).setView([39.8283, -98.5795], 5);
+  view = L.map('viewDiv', { zoomControl: true, maxZoom: 19 }).setView([39.8283, -98.5795], 5);
 
   // Disable Leaflet drag while sidebar items are being dragged so drop works correctly
   document.querySelectorAll('.equipment-item').forEach(el => {
@@ -651,7 +651,9 @@ window.addEventListener('load', function() {
 
   // ArcGIS World Topographic Map via Esri-Leaflet (pure REST, no auth needed)
   L.esri.tiledMapLayer({
-    url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer'
+    url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer',
+    maxZoom: 19,
+    maxNativeZoom: 19
   }).addTo(view);
 
   document.getElementById('map-loading').style.display = 'none';
@@ -889,7 +891,7 @@ async function takeScreenshot() {
     ctx.font = 'bold 22px "Fredoka One", cursive';
     ctx.fillStyle = 'rgba(46,125,50,0.85)';
     ctx.textAlign = 'left';
-    ctx.fillText('🌳 Build a Park v.2', 16, 32);
+    ctx.fillText('🌳 Build a Park v.3', 16, 32);
 
     // Download
     const link = document.createElement('a');
@@ -1079,7 +1081,7 @@ async function doSignIn() {
       title: title,
       type: 'Web Map',
       tags: 'park,playground,student design',
-      description: `A park design created by ${arcgisUsername} using Build a Park v.2`,
+      description: `A park design created by ${arcgisUsername} using Build a Park v.3`,
       text: JSON.stringify(webmapJson),
       snippet: `Park with ${placedItems.length} equipment items: ${[...new Set(placedItems.map(i=>i.label))].join(', ')}`
     });
@@ -1220,7 +1222,7 @@ async function geocodeAndGo(text, magicKey) {
     const name = best.attributes?.PlaceName || text.split(',')[0];
 
     // Fly the map to the result
-    view.setView([lat, lon], 16);
+    view.setView([lat, lon], 19);
 
     // Remove old pin
     if (searchMarker) { searchMarker.remove(); searchMarker = null; }
