@@ -393,7 +393,6 @@
   <span class="header-emoji">🌳</span>
   <h1>Park Designer</h1>
   <div class="header-actions">
-    <button class="btn btn-signin" id="signinBtn" onclick="showSignIn()">🔑 Sign In to ArcGIS</button>
     <button class="btn btn-screenshot" onclick="takeScreenshot()">📸 Screenshot</button>
     <button class="btn btn-save" onclick="saveToArcGIS()">💾 Save to ArcGIS</button>
     <button class="btn btn-clear" onclick="clearAll()">🗑️ Clear All</button>
@@ -488,17 +487,19 @@
   </div>
 </div>
 
-<!-- SIGN-IN MODAL -->
+<!-- SAVE MODAL -->
 <div class="modal-overlay" id="signinModal">
   <div class="modal">
-    <h2>🗺️ Sign In to ArcGIS</h2>
-    <p>Enter your ArcGIS Online credentials to save your park design as a web map!</p>
+    <h2>💾 Save to ArcGIS Online</h2>
+    <p>Sign in with your ArcGIS Online account and give your park map a name.</p>
     <input type="text" id="arcgisUser" placeholder="ArcGIS Username" autocomplete="username">
     <input type="password" id="arcgisPass" placeholder="Password" autocomplete="current-password">
+    <div style="text-align:left;font-size:0.8rem;font-weight:800;color:#555;margin-bottom:6px;margin-top:4px;">📝 Map Name</div>
+    <input type="text" id="mapTitle" placeholder="Name your map..." autocomplete="off">
     <div id="signinError" style="color:#c62828;font-size:0.85rem;font-weight:700;min-height:20px;margin-bottom:8px;"></div>
     <div class="modal-actions">
       <button class="btn btn-cancel" onclick="closeSignIn()">Cancel</button>
-      <button class="btn btn-primary" onclick="doSignIn()">🔑 Sign In</button>
+      <button class="btn btn-primary" onclick="doSignIn()">💾 Save Map</button>
     </div>
   </div>
 </div>
@@ -536,7 +537,7 @@ require([
 
   window._esriModules = { IdentityManager, Portal, PortalItem, MediaLayer, Point, Map, MapView };
 
-  const map = new Map({ basemap: "streets-navigation-vector" });
+  const map = new Map({ basemap: "topo-vector" });
 
   view = new MapView({
     container: "viewDiv",
@@ -821,47 +822,74 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 // ─────────────────────────────────────────────
-//  ARCGIS SIGN-IN
+//  SAVE MODAL HELPERS
 // ─────────────────────────────────────────────
+function suggestedMapName() {
+  const now = new Date();
+  const date = now.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+  const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  return `Park Design ${date} ${time}`;
+}
+
 function showSignIn() {
   document.getElementById('signinModal').classList.add('open');
   document.getElementById('signinError').textContent = '';
+  // Pre-fill suggested map name
+  const titleInput = document.getElementById('mapTitle');
+  if (!titleInput.value) titleInput.value = suggestedMapName();
 }
+
 function closeSignIn() {
   document.getElementById('signinModal').classList.remove('open');
 }
 
+// ─────────────────────────────────────────────
+//  SAVE TO ARCGIS ONLINE AS WEB MAP
+// ─────────────────────────────────────────────
+async function saveToArcGIS() {
+  if (placedItems.length === 0) {
+    showToast('🌳 Place some equipment on the map first!', '#e65100');
+    return;
+  }
+  showSignIn();
+}
+
 async function doSignIn() {
-  const user = document.getElementById('arcgisUser').value.trim();
-  const pass = document.getElementById('arcgisPass').value;
-  const errEl = document.getElementById('signinError');
+  const user   = document.getElementById('arcgisUser').value.trim();
+  const pass   = document.getElementById('arcgisPass').value;
+  const title  = document.getElementById('mapTitle').value.trim() || suggestedMapName();
+  const errEl  = document.getElementById('signinError');
   errEl.textContent = '';
 
-  if (!user || !pass) { errEl.textContent = 'Please enter both username and password.'; return; }
+  if (!user || !pass) { errEl.textContent = 'Please enter your username and password.'; return; }
+
+  // Show working state
+  errEl.style.color = '#1565c0';
+  errEl.textContent = '⏳ Signing in and saving...';
 
   try {
-    // Generate token from ArcGIS Online
-    const params = new URLSearchParams({
+    // 1. Generate ArcGIS token
+    const tokenParams = new URLSearchParams({
       username: user,
       password: pass,
       referer: window.location.href,
       expiration: 120,
       f: 'json'
     });
-
-    const res = await fetch('https://www.arcgis.com/sharing/rest/generateToken', {
+    const tokenRes  = await fetch('https://www.arcgis.com/sharing/rest/generateToken', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString()
+      body: tokenParams.toString()
     });
-    const data = await res.json();
+    const tokenData = await tokenRes.json();
 
-    if (data.error || !data.token) {
-      errEl.textContent = data.error?.message || 'Invalid credentials. Please try again.';
+    if (tokenData.error || !tokenData.token) {
+      errEl.style.color = '#c62828';
+      errEl.textContent = tokenData.error?.message || 'Invalid username or password. Please try again.';
       return;
     }
 
-    arcgisToken = data.token;
+    arcgisToken    = tokenData.token;
     arcgisUsername = user;
 
     // Register with ArcGIS Identity Manager
@@ -870,133 +898,66 @@ async function doSignIn() {
       server: 'https://www.arcgis.com',
       token: arcgisToken,
       userId: arcgisUsername,
-      expires: data.expires
+      expires: tokenData.expires
     });
 
-    closeSignIn();
-    document.getElementById('signinBtn').textContent = `✅ ${user}`;
-    document.getElementById('signinBtn').style.background = 'linear-gradient(135deg,#2e7d32,#1b5e20)';
-    showToast(`👋 Welcome, ${user}!`, '#2e7d32');
-  } catch(err) {
-    errEl.textContent = 'Connection error. Check your internet and try again.';
-    console.error(err);
-  }
-}
-
-// ─────────────────────────────────────────────
-//  SAVE TO ARCGIS ONLINE AS WEB MAP
-// ─────────────────────────────────────────────
-async function saveToArcGIS() {
-  if (!arcgisToken) {
-    showToast('🔑 Please sign in to ArcGIS Online first!', '#c62828');
-    showSignIn();
-    return;
-  }
-  if (placedItems.length === 0) {
-    showToast('🌳 Place some equipment on the map first!', '#e65100');
-    return;
-  }
-
-  showToast('💾 Saving your park...', '#1565c0');
-
-  try {
-    // Build GeoJSON feature collection from placed items
-    const features = placedItems.map(item => ({
-      type: "Feature",
-      geometry: { type: "Point", coordinates: [item.mapLon, item.mapLat] },
-      properties: {
-        name:  item.label,
-        type:  item.type,
-        icon:  item.icon,
-        title: item.label
-      }
-    }));
-
-    const geojson = {
-      type: "FeatureCollection",
-      features
-    };
-
-    // Build the web map JSON (ArcGIS format)
+    // 2. Build web map JSON
     const extent = view.extent;
-    const center = view.center;
-
     const webmapJson = {
-      operationalLayers: [
-        {
-          id: "parkEquipment",
-          title: "Park Equipment",
-          layerType: "GeoJSON",
-          url: null,
-          featureCollection: {
-            layers: [{
-              layerDefinition: {
-                geometryType: "esriGeometryPoint",
-                objectIdField: "OBJECTID",
-                fields: [
-                  { name: "OBJECTID", alias: "OBJECTID", type: "esriFieldTypeOID" },
-                  { name: "name",     alias: "Name",     type: "esriFieldTypeString", length: 100 },
-                  { name: "type",     alias: "Type",     type: "esriFieldTypeString", length: 50 },
-                  { name: "icon",     alias: "Icon",     type: "esriFieldTypeString", length: 10 }
-                ]
+      operationalLayers: [{
+        id: "parkEquipment",
+        title: "Park Equipment",
+        layerType: "GeoJSON",
+        url: null,
+        featureCollection: {
+          layers: [{
+            layerDefinition: {
+              geometryType: "esriGeometryPoint",
+              objectIdField: "OBJECTID",
+              fields: [
+                { name: "OBJECTID", alias: "OBJECTID", type: "esriFieldTypeOID" },
+                { name: "name",     alias: "Name",     type: "esriFieldTypeString", length: 100 },
+                { name: "type",     alias: "Type",     type: "esriFieldTypeString", length: 50 },
+                { name: "icon",     alias: "Icon",     type: "esriFieldTypeString", length: 10 }
+              ]
+            },
+            featureSet: {
+              geometryType: "esriGeometryPoint",
+              spatialReference: { wkid: 4326 },
+              features: placedItems.map((item, idx) => ({
+                attributes: { OBJECTID: idx + 1, name: item.label, type: item.type, icon: item.icon },
+                geometry: { x: item.mapLon, y: item.mapLat, spatialReference: { wkid: 4326 } }
+              }))
+            },
+            drawingInfo: {
+              renderer: {
+                type: "simple",
+                symbol: { type: "esriSMS", style: "esriSMSCircle", color: [76,175,80,255], size: 12, outline: { color: [255,255,255,255], width: 2 } }
               },
-              featureSet: {
-                geometryType: "esriGeometryPoint",
-                spatialReference: { wkid: 4326 },
-                features: placedItems.map((item, idx) => ({
-                  attributes: {
-                    OBJECTID: idx + 1,
-                    name: item.label,
-                    type: item.type,
-                    icon: item.icon
-                  },
-                  geometry: {
-                    x: item.mapLon,
-                    y: item.mapLat,
-                    spatialReference: { wkid: 4326 }
-                  }
-                }))
-              },
-              drawingInfo: {
-                renderer: {
-                  type: "simple",
-                  symbol: {
-                    type: "esriSMS",
-                    style: "esriSMSCircle",
-                    color: [76, 175, 80, 255],
-                    size: 12,
-                    outline: { color: [255,255,255,255], width: 2 }
-                  }
-                },
-                labelingInfo: [{
-                  labelPlacement: "esriServerPointLabelPlacementAboveCenter",
-                  labelExpression: "[name]",
-                  symbol: {
-                    type: "esriTS",
-                    color: [27,94,32,255],
-                    font: { size: 11, weight: "bold" }
-                  }
-                }]
-              }
-            }]
-          },
-          popupInfo: {
-            title: "{name}",
-            fieldInfos: [
-              { fieldName: "name", label: "Equipment Name", visible: true },
-              { fieldName: "type", label: "Type", visible: true }
-            ]
-          }
+              labelingInfo: [{
+                labelPlacement: "esriServerPointLabelPlacementAboveCenter",
+                labelExpression: "[name]",
+                symbol: { type: "esriTS", color: [27,94,32,255], font: { size: 11, weight: "bold" } }
+              }]
+            }
+          }]
+        },
+        popupInfo: {
+          title: "{name}",
+          fieldInfos: [
+            { fieldName: "name", label: "Equipment Name", visible: true },
+            { fieldName: "type", label: "Type", visible: true }
+          ]
         }
-      ],
+      }],
       baseMap: {
         baseMapLayers: [{
           id: "basemap",
           layerType: "ArcGISTiledMapServiceLayer",
-          url: "https://services.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer",
-          title: "Streets"
+          url: "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer",
+          title: "World Topographic Map"
         }],
-        title: "Streets"
+        title: "Topographic"
       },
       spatialReference: { wkid: 102100, latestWkid: 3857 },
       initialState: {
@@ -1010,39 +971,44 @@ async function saveToArcGIS() {
           }
         }
       },
-      authoringApp: "PlaygroundCreator",
+      authoringApp: "ParkDesigner",
       authoringAppVersion: "1.0",
       version: "2.26"
     };
 
-    // Add item to ArcGIS Online portal
+    // 3. Save to ArcGIS Online
     const addParams = new URLSearchParams({
       f: 'json',
       token: arcgisToken,
-      title: `My Park Design - ${new Date().toLocaleDateString()}`,
+      title: title,
       type: 'Web Map',
       tags: 'park,playground,student design',
-      description: `A playground park design created by ${arcgisUsername} using Park Designer Pro`,
+      description: `A park design created by ${arcgisUsername} using Park Designer`,
       text: JSON.stringify(webmapJson),
       snippet: `Park with ${placedItems.length} equipment items: ${[...new Set(placedItems.map(i=>i.label))].join(', ')}`
     });
 
-    const saveRes = await fetch(
+    const saveRes  = await fetch(
       `https://www.arcgis.com/sharing/rest/content/users/${arcgisUsername}/addItem`,
       { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: addParams.toString() }
     );
     const saveData = await saveRes.json();
 
     if (saveData.success && saveData.id) {
+      closeSignIn();
+      // Clear credentials for next use but keep map name blank
+      document.getElementById('arcgisPass').value = '';
+      document.getElementById('mapTitle').value = '';
       const mapUrl = `https://www.arcgis.com/home/item.html?id=${saveData.id}`;
-      showToast(`✅ Park saved! Opening in ArcGIS...`, '#2e7d32');
+      showToast(`✅ "${title}" saved! Opening in ArcGIS...`, '#2e7d32');
       setTimeout(() => window.open(mapUrl, '_blank'), 1500);
     } else {
       throw new Error(saveData.error?.message || 'Save failed');
     }
   } catch(err) {
     console.error(err);
-    showToast('❌ Save failed: ' + (err.message || 'Unknown error'), '#c62828');
+    errEl.style.color = '#c62828';
+    errEl.textContent = '❌ ' + (err.message || 'Connection error. Please try again.');
   }
 }
 
