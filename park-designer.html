@@ -860,30 +860,6 @@ async function takeScreenshot() {
     });
     const ctx = canvas.getContext('2d');
 
-    // Draw placed items
-    for (const item of placedItems) {
-      ctx.font = '38px serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.shadowColor = 'rgba(0,0,0,0.3)';
-      ctx.shadowBlur = 6;
-      ctx.fillText(item.icon, item.x, item.y - 8);
-
-      // Label
-      ctx.shadowBlur = 0;
-      ctx.font = 'bold 13px Nunito, sans-serif';
-      ctx.fillStyle = '#1b5e20';
-      const lw = ctx.measureText(item.label).width + 20;
-      ctx.fillStyle = 'rgba(255,255,255,0.92)';
-      roundRect(ctx, item.x - lw/2, item.y + 16, lw, 22, 11);
-      ctx.fill();
-      ctx.strokeStyle = '#a5d6a7';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.fillStyle = '#1b5e20';
-      ctx.fillText(item.label, item.x, item.y + 27);
-    }
-
     // Add title watermark
     ctx.font = 'bold 22px "Fredoka One", cursive';
     ctx.fillStyle = 'rgba(46,125,50,0.85)';
@@ -905,20 +881,6 @@ async function takeScreenshot() {
     console.error(err);
     showToast('📸 Screenshot ready — check your downloads!', '#2e7d32');
   }
-}
-
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
 }
 
 // ─────────────────────────────────────────────
