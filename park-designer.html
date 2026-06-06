@@ -3,11 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌳 Park Designer</title>
+<title>🌳 Build a Park v.1</title>
 
-<!-- ArcGIS API -->
-<link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css">
-<script src="https://js.arcgis.com/4.29/"></script>
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<!-- Esri Leaflet (wraps ArcGIS REST services) -->
+<script src="https://unpkg.com/esri-leaflet@3.0.12/dist/esri-leaflet.js"></script>
 
 <!-- html2canvas for screenshots -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -160,6 +162,18 @@
   #viewDiv {
     width: 100%;
     height: 100%;
+  }
+
+  /* Ensure Leaflet map fills container */
+  .leaflet-container {
+    width: 100% !important;
+    height: 100% !important;
+    background: #aad3df;
+  }
+
+  /* Keep our overlay above Leaflet panes */
+  #overlay {
+    z-index: 500 !important;
   }
 
   /* ── PLACED ITEMS OVERLAY ── */
@@ -391,7 +405,7 @@
 
 <header>
   <span class="header-emoji">🌳</span>
-  <h1>Park Designer</h1>
+  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v.1</span></h1>
   <div class="header-actions">
     <button class="btn btn-screenshot" onclick="takeScreenshot()">📸 Screenshot</button>
     <button class="btn btn-save" onclick="saveToArcGIS()">💾 Save to ArcGIS</button>
@@ -522,51 +536,25 @@ let arcgisUsername = null;
 let view = null;
 
 // ─────────────────────────────────────────────
-//  ARCGIS MAP INIT
+//  MAP INIT — Leaflet + Esri-Leaflet (ArcGIS REST)
 // ─────────────────────────────────────────────
-require([
-  "esri/Map",
-  "esri/views/MapView",
-  "esri/layers/TileLayer",
-  "esri/Basemap",
-  "esri/layers/FeatureLayer",
-  "esri/identity/IdentityManager",
-  "esri/portal/Portal",
-  "esri/portal/PortalItem",
-  "esri/layers/MediaLayer",
-  "esri/geometry/Point"
-], function(Map, MapView, TileLayer, Basemap, FeatureLayer, IdentityManager, Portal, PortalItem, MediaLayer, Point) {
+window.addEventListener('load', function() {
+  // Leaflet map centered on USA
+  view = L.map('viewDiv', { zoomControl: true }).setView([39.8283, -98.5795], 5);
 
-  window._esriModules = { IdentityManager, Portal, PortalItem, MediaLayer, Point, Map, MapView };
-
-  const topoBasemap = new Basemap({
-    baseLayers: [
-      new TileLayer({
-        url: "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer",
-        title: "World Topographic Map"
-      })
-    ],
-    title: "Topographic",
-    id: "topo"
+  // Disable Leaflet drag while sidebar items are being dragged so drop works correctly
+  document.querySelectorAll('.equipment-item').forEach(el => {
+    el.addEventListener('dragstart', () => view.dragging.disable());
+    el.addEventListener('dragend',   () => view.dragging.enable());
   });
 
-  const map = new Map({ basemap: topoBasemap });
+  // ArcGIS World Topographic Map via Esri-Leaflet (pure REST, no auth needed)
+  L.esri.tiledMapLayer({
+    url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer'
+  }).addTo(view);
 
-  view = new MapView({
-    container: "viewDiv",
-    map: map,
-    center: [-98.5795, 39.8283],   // center of USA
-    zoom: 5,
-    ui: { components: ["zoom", "compass", "attribution"] }
-  });
-
-  window._esriView = view;
-  window._esriMap = map;
-
-  view.when(() => {
-    document.getElementById('map-loading').style.display = 'none';
-    setupDrop();
-  });
+  document.getElementById('map-loading').style.display = 'none';
+  setupDrop();
 });
 
 // ─────────────────────────────────────────────
@@ -615,7 +603,7 @@ function setupDrop() {
     const y = e.clientY - rect.top;
 
     // Convert screen coords to map point for storage
-    const mapPoint = view.toMap({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    const latlng = view.containerPointToLatLng(L.point(x, y));
 
     const id = Date.now() + Math.random();
     const item = {
@@ -624,8 +612,8 @@ function setupDrop() {
       icon: dragData.icon,
       label: dragData.label,
       x, y,
-      mapLon: mapPoint ? mapPoint.longitude : 0,
-      mapLat: mapPoint ? mapPoint.latitude : 0
+      mapLon: latlng ? latlng.lng : 0,
+      mapLat: latlng ? latlng.lat : 0
     };
 
     placedItems.push(item);
@@ -721,8 +709,8 @@ function startDragItem(e, item, el) {
     el.style.top  = item.y + 'px';
 
     // Update map coordinate
-    const mp = view.toMap({ x: item.x, y: item.y });
-    if (mp) { item.mapLon = mp.longitude; item.mapLat = mp.latitude; }
+    const mp = view.containerPointToLatLng(L.point(item.x, item.y));
+    if (mp) { item.mapLon = mp.lng; item.mapLat = mp.lat; }
   }
   function onUp() {
     document.removeEventListener('mousemove', onMove);
@@ -761,21 +749,16 @@ async function takeScreenshot() {
   setTimeout(() => flash.classList.remove('active'), 300);
 
   try {
-    // Take ArcGIS screenshot of the map
-    const screenshot = await view.takeScreenshot({ quality: 95 });
-
-    // Build a canvas that composites map + overlay emoji items
-    const canvas = document.createElement('canvas');
+    // Capture map tiles + overlay with html2canvas
     const mapContainer = document.getElementById('mapContainer');
-    canvas.width  = mapContainer.clientWidth;
-    canvas.height = mapContainer.clientHeight;
+    const canvas = await html2canvas(mapContainer, {
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      width: mapContainer.clientWidth,
+      height: mapContainer.clientHeight
+    });
     const ctx = canvas.getContext('2d');
-
-    // Draw map screenshot
-    const mapImg = new Image();
-    mapImg.src = screenshot.dataUrl;
-    await new Promise(r => { mapImg.onload = r; });
-    ctx.drawImage(mapImg, 0, 0, canvas.width, canvas.height);
 
     // Draw placed items
     for (const item of placedItems) {
@@ -805,7 +788,7 @@ async function takeScreenshot() {
     ctx.font = 'bold 22px "Fredoka One", cursive';
     ctx.fillStyle = 'rgba(46,125,50,0.85)';
     ctx.textAlign = 'left';
-    ctx.fillText('🌳 Park Designer', 16, 32);
+    ctx.fillText('🌳 Build a Park v.1', 16, 32);
 
     // Download
     const link = document.createElement('a');
@@ -905,17 +888,16 @@ async function doSignIn() {
     arcgisToken    = tokenData.token;
     arcgisUsername = user;
 
-    // Register with ArcGIS Identity Manager
-    const { IdentityManager } = window._esriModules;
-    IdentityManager.registerToken({
-      server: 'https://www.arcgis.com',
-      token: arcgisToken,
-      userId: arcgisUsername,
-      expires: tokenData.expires
-    });
+    // Token registered (IdentityManager not used with Leaflet)
 
     // 2. Build web map JSON
-    const extent = view.extent;
+    const bounds = view.getBounds();
+    const extent = bounds ? {
+      xmin: bounds.getWest(),
+      ymin: bounds.getSouth(),
+      xmax: bounds.getEast(),
+      ymax: bounds.getNorth()
+    } : null;
     const webmapJson = {
       operationalLayers: [{
         id: "parkEquipment",
@@ -972,15 +954,15 @@ async function doSignIn() {
         }],
         title: "Topographic"
       },
-      spatialReference: { wkid: 102100, latestWkid: 3857 },
+      spatialReference: { wkid: 4326 },
       initialState: {
         viewpoint: {
           targetGeometry: {
-            spatialReference: { wkid: 102100, latestWkid: 3857 },
-            xmin: extent ? extent.xmin : -15000000,
-            ymin: extent ? extent.ymin : 2500000,
-            xmax: extent ? extent.xmax : -6000000,
-            ymax: extent ? extent.ymax : 7000000
+            spatialReference: { wkid: 4326 },
+            xmin: extent ? extent.xmin : -125,
+            ymin: extent ? extent.ymin : 24,
+            xmax: extent ? extent.xmax : -66,
+            ymax: extent ? extent.ymax : 49
           }
         }
       },
@@ -996,7 +978,7 @@ async function doSignIn() {
       title: title,
       type: 'Web Map',
       tags: 'park,playground,student design',
-      description: `A park design created by ${arcgisUsername} using Park Designer`,
+      description: `A park design created by ${arcgisUsername} using Build a Park v.1`,
       text: JSON.stringify(webmapJson),
       snippet: `Park with ${placedItems.length} equipment items: ${[...new Set(placedItems.map(i=>i.label))].join(', ')}`
     });
