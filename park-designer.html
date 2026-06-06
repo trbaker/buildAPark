@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌳 Build a Park v.3</title>
+<title>🌳 Build a Park v.5</title>
 
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -327,150 +327,6 @@
   .btn-primary { background: linear-gradient(135deg, #1565c0, #0d47a1); color: white; }
   .btn-cancel  { background: #f5f5f5; color: #555; }
 
-  /* ── ADDRESS SEARCH ── */
-  .search-wrap {
-    position: absolute;
-    top: 14px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 600;
-    width: min(480px, 80%);
-    display: flex;
-    gap: 0;
-    filter: drop-shadow(0 4px 14px rgba(0,0,0,0.22));
-  }
-  .search-input {
-    flex: 1;
-    padding: 11px 16px;
-    font-family: 'Nunito', sans-serif;
-    font-size: 0.95rem;
-    font-weight: 700;
-    border: 3px solid #66bb6a;
-    border-right: none;
-    border-radius: 50px 0 0 50px;
-    outline: none;
-    background: white;
-    color: #1b5e20;
-    transition: border-color 0.2s;
-  }
-  .search-input::placeholder { color: #aaa; font-weight: 600; }
-  .search-input:focus { border-color: #ffb300; }
-  .search-btn {
-    background: linear-gradient(135deg, #66bb6a, #2e7d32);
-    color: white;
-    border: none;
-    border-radius: 0 50px 50px 0;
-    padding: 11px 18px;
-    font-size: 1.1rem;
-    cursor: pointer;
-    transition: filter 0.15s;
-    font-family: 'Nunito', sans-serif;
-    font-weight: 800;
-    white-space: nowrap;
-  }
-  .search-btn:hover { filter: brightness(1.1); }
-  .search-btn:active { filter: brightness(0.9); }
-
-  .search-results {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0; right: 0;
-    background: white;
-    border-radius: 14px;
-    box-shadow: 0 8px 28px rgba(0,0,0,0.18);
-    border: 2px solid #c8e6c9;
-    overflow: hidden;
-    display: none;
-    max-height: 280px;
-    overflow-y: auto;
-  }
-  .search-results.open { display: block; }
-  .search-result-item {
-    padding: 11px 16px;
-    cursor: pointer;
-    font-size: 0.88rem;
-    font-weight: 700;
-    color: #2e7d32;
-    border-bottom: 1px solid #f1f8e9;
-    transition: background 0.12s;
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  .search-result-item:last-child { border-bottom: none; }
-  .search-result-item:hover { background: #f1f8e9; }
-  .search-result-item .sri-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
-  .search-result-item .sri-text { display: flex; flex-direction: column; }
-  .search-result-item .sri-name { font-weight: 800; color: #1b5e20; }
-  .search-result-item .sri-addr { font-size: 0.78rem; color: #777; font-weight: 600; margin-top: 1px; }
-  .search-no-results {
-    padding: 14px 16px;
-    color: #999;
-    font-size: 0.88rem;
-    font-weight: 700;
-    text-align: center;
-  }
-
-  /* ── LOCATION INFO CARD ── */
-  .location-card {
-    position: absolute;
-    bottom: 28px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: white;
-    border-radius: 16px;
-    box-shadow: 0 6px 24px rgba(0,0,0,0.2);
-    border: 2.5px solid #a5d6a7;
-    padding: 12px 18px 12px 16px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    z-index: 600;
-    font-family: 'Nunito', sans-serif;
-    max-width: min(420px, 88%);
-    animation: slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1);
-  }
-  @keyframes slideUp {
-    from { transform: translateX(-50%) translateY(20px); opacity: 0; }
-    to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
-  }
-  .location-card.hidden { display: none; }
-  .location-card-icon { font-size: 1.8rem; flex-shrink: 0; }
-  .location-card-body { flex: 1; min-width: 0; }
-  .location-card-name {
-    font-weight: 900;
-    font-size: 0.95rem;
-    color: #1b5e20;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .location-card-addr {
-    font-size: 0.78rem;
-    font-weight: 600;
-    color: #777;
-    margin-top: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .location-card-close {
-    background: #f5f5f5;
-    border: none;
-    border-radius: 50%;
-    width: 26px;
-    height: 26px;
-    font-size: 0.85rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 900;
-    color: #555;
-    flex-shrink: 0;
-    transition: background 0.15s;
-  }
-  .location-card-close:hover { background: #ffcdd2; color: #c62828; }
 
   /* ── SAVE STATUS ── */
   .save-status {
@@ -550,7 +406,7 @@
 
 <header>
   <span class="header-emoji">🌳</span>
-  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v.3</span></h1>
+  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v.5</span></h1>
   <div class="header-actions">
     <button class="btn btn-screenshot" onclick="takeScreenshot()">📸 Screenshot</button>
     <button class="btn btn-save" onclick="saveToArcGIS()">💾 Save to ArcGIS</button>
@@ -643,27 +499,7 @@
     </div>
     <div id="viewDiv"></div>
 
-    <!-- ADDRESS SEARCH BAR -->
-    <div class="search-wrap" id="searchWrap">
-      <input class="search-input" id="searchInput" type="text"
-             placeholder="🔍 Find your school or a nearby park..."
-             autocomplete="off"
-             onkeydown="if(event.key==='Enter') doSearch()">
-      <button class="search-btn" onclick="doSearch()">Find It!</button>
-      <div class="search-results" id="searchResults"></div>
-    </div>
-
     <div id="overlay"></div>
-
-    <!-- LOCATION INFO CARD -->
-    <div class="location-card hidden" id="locationCard">
-      <span class="location-card-icon">📍</span>
-      <div class="location-card-body">
-        <div class="location-card-name" id="locationCardName"></div>
-        <div class="location-card-addr" id="locationCardAddr"></div>
-      </div>
-      <button class="location-card-close" onclick="closeLocationCard()" title="Close">✕</button>
-    </div>
   </div>
 </div>
 
@@ -706,7 +542,7 @@ let view = null;
 // ─────────────────────────────────────────────
 window.addEventListener('load', function() {
   // Leaflet map centered on USA
-  view = L.map('viewDiv', { zoomControl: true, maxZoom: 19 }).setView([39.8283, -98.5795], 5);
+  view = L.map('viewDiv', { zoomControl: false, maxZoom: 19 }).setView([39.8283, -98.5795], 5);
 
   // Disable Leaflet drag while sidebar items are being dragged so drop works correctly
   document.querySelectorAll('.equipment-item').forEach(el => {
@@ -955,7 +791,7 @@ async function takeScreenshot() {
     ctx.font = 'bold 22px "Fredoka One", cursive';
     ctx.fillStyle = 'rgba(46,125,50,0.85)';
     ctx.textAlign = 'left';
-    ctx.fillText('🌳 Build a Park v.3', 16, 32);
+    ctx.fillText('🌳 Build a Park v.5', 16, 32);
 
     // Download
     const link = document.createElement('a');
@@ -1145,7 +981,7 @@ async function doSignIn() {
       title: title,
       type: 'Web Map',
       tags: 'park,playground,student design',
-      description: `A park design created by ${arcgisUsername} using Build a Park v.3`,
+      description: `A park design created by ${arcgisUsername} using Build a Park v.5`,
       text: JSON.stringify(webmapJson),
       snippet: `Park with ${placedItems.length} equipment items: ${[...new Set(placedItems.map(i=>i.label))].join(', ')}`
     });
@@ -1172,149 +1008,6 @@ async function doSignIn() {
     errEl.style.color = '#c62828';
     errEl.textContent = '❌ ' + (err.message || 'Connection error. Please try again.');
   }
-}
-
-// ─────────────────────────────────────────────
-//  ADDRESS SEARCH (ArcGIS World Geocoding REST)
-// ─────────────────────────────────────────────
-let searchDebounce = null;
-
-// Live suggestions as user types
-document.addEventListener('DOMContentLoaded', () => {
-  const input = document.getElementById('searchInput');
-  if (!input) return;
-  input.addEventListener('input', () => {
-    clearTimeout(searchDebounce);
-    const q = input.value.trim();
-    if (q.length < 3) { closeResults(); return; }
-    searchDebounce = setTimeout(() => suggestAddresses(q), 350);
-  });
-  // Close results when clicking outside
-  document.addEventListener('mousedown', e => {
-    if (!document.getElementById('searchWrap').contains(e.target)) closeResults();
-  });
-});
-
-async function suggestAddresses(query) {
-  try {
-    const url = new URL('https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/suggest');
-    url.searchParams.set('f', 'json');
-    url.searchParams.set('text', query);
-    url.searchParams.set('maxSuggestions', 6);
-    url.searchParams.set('category', 'Address,POI,Education,Parks and Outdoors');
-
-    const res  = await fetch(url);
-    const data = await res.json();
-    showSuggestions(data.suggestions || []);
-  } catch(e) {
-    console.error('Suggest error', e);
-  }
-}
-
-function showSuggestions(suggestions) {
-  const box = document.getElementById('searchResults');
-  box.innerHTML = '';
-  if (!suggestions.length) {
-    box.innerHTML = '<div class="search-no-results">No results found — try a different search!</div>';
-    box.classList.add('open');
-    return;
-  }
-  suggestions.forEach(s => {
-    const item = document.createElement('div');
-    item.className = 'search-result-item';
-    // Pick icon based on keywords
-    const t = s.text.toLowerCase();
-    const icon = t.includes('school') || t.includes('elementary') || t.includes('middle') || t.includes('high school') ? '🏫'
-               : t.includes('park') || t.includes('playground') || t.includes('recreation') ? '🌳'
-               : t.includes('library') ? '📚'
-               : t.includes('community center') ? '🏛️'
-               : '📍';
-    const parts = s.text.split(',');
-    const name  = parts[0] || s.text;
-    const addr  = parts.slice(1).join(',').trim();
-    item.innerHTML = `
-      <span class="sri-icon">${icon}</span>
-      <span class="sri-text">
-        <span class="sri-name">${name}</span>
-        ${addr ? `<span class="sri-addr">${addr}</span>` : ''}
-      </span>`;
-    item.addEventListener('mousedown', e => {
-      e.preventDefault();
-      document.getElementById('searchInput').value = s.text;
-      closeResults();
-      geocodeAndGo(s.text, s.magicKey);
-    });
-    box.appendChild(item);
-  });
-  box.classList.add('open');
-}
-
-function closeResults() {
-  document.getElementById('searchResults').classList.remove('open');
-}
-
-async function doSearch() {
-  const q = document.getElementById('searchInput').value.trim();
-  if (!q) return;
-  closeResults();
-  await geocodeAndGo(q, null);
-}
-
-async function geocodeAndGo(text, magicKey) {
-  showToast('🔍 Finding location...', '#1565c0');
-  try {
-    const url = new URL('https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates');
-    url.searchParams.set('f', 'json');
-    url.searchParams.set('singleLine', text);
-    url.searchParams.set('outFields', 'PlaceName,Place_addr,Type');
-    url.searchParams.set('maxLocations', 1);
-    if (magicKey) url.searchParams.set('magicKey', magicKey);
-
-    const res  = await fetch(url);
-    const data = await res.json();
-    const candidates = data.candidates || [];
-
-    if (!candidates.length) {
-      showToast('😕 Location not found — try being more specific!', '#e65100');
-      return;
-    }
-
-    const best = candidates[0];
-    const lon  = best.location.x;
-    const lat  = best.location.y;
-    const name = best.attributes?.PlaceName || text.split(',')[0];
-
-    // Fly the map to the result
-    view.setView([lat, lon], 19);
-
-    // Show location info card (no pin on map)
-    showLocationCard(name, best.attributes?.Place_addr || text);
-  } catch(e) {
-    console.error('Geocode error', e);
-    showToast('❌ Search failed — check your connection.', '#c62828');
-  }
-}
-
-// ─────────────────────────────────────────────
-//  LOCATION INFO CARD
-// ─────────────────────────────────────────────
-function showLocationCard(name, addr) {
-  const card = document.getElementById('locationCard');
-  document.getElementById('locationCardName').textContent = name;
-  document.getElementById('locationCardAddr').textContent = addr || '';
-  card.classList.remove('hidden');
-  // Pick icon based on name
-  const t = name.toLowerCase();
-  const icon = t.includes('school') || t.includes('elementary') || t.includes('middle') || t.includes('academy') ? '🏫'
-             : t.includes('park') || t.includes('playground') || t.includes('recreation') ? '🌳'
-             : t.includes('library') ? '📚'
-             : t.includes('community center') ? '🏛️'
-             : '📍';
-  card.querySelector('.location-card-icon').textContent = icon;
-}
-
-function closeLocationCard() {
-  document.getElementById('locationCard').classList.add('hidden');
 }
 
 // ─────────────────────────────────────────────
