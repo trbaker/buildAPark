@@ -957,7 +957,7 @@ async function doSignIn() {
     const tokenParams = new URLSearchParams({
       username: user,
       password: pass,
-      referer: window.location.href,
+      referer: 'https://www.arcgis.com',
       expiration: 120,
       f: 'json'
     });
@@ -1073,7 +1073,7 @@ async function doSignIn() {
     });
 
     const saveRes  = await fetch(
-      `https://www.arcgis.com/sharing/rest/content/users/${arcgisUsername}/addItem`,
+      `https://www.arcgis.com/sharing/rest/content/users/${arcgisUsername}/addItem?token=${encodeURIComponent(arcgisToken)}`,
       { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: addParams.toString() }
     );
     const saveData = await saveRes.json();
