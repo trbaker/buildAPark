@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌳 Park Designer</title>
+
+<!-- ArcGIS API -->
+<link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css">
+<script src="https://js.arcgis.com/4.29/"></script>
+
+<!-- html2canvas for screenshots -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap');
+
+  :root {
+    --grass: #4caf50;
+    --grass-dark: #388e3c;
+    --sky: #64b5f6;
+    --sun: #ffb300;
+    --bark: #8d6e63;
+    --sand: #ffe082;
+    --red: #ef5350;
+    --purple: #ab47bc;
+    --teal: #26a69a;
+    --orange: #ff7043;
+    --white: #ffffff;
+    --panel-bg: rgba(255,255,255,0.97);
+    --shadow: 0 4px 24px rgba(0,0,0,0.13);
+    --radius: 18px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: linear-gradient(135deg, #e8f5e9 0%, #e3f2fd 100%);
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: linear-gradient(90deg, #2e7d32 0%, #1565c0 100%);
+    color: white;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.25);
+    z-index: 200;
+    position: relative;
+  }
+  header h1 {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.7rem;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    flex: 1;
+  }
+  .header-emoji { font-size: 2rem; }
+
+  .header-actions { display: flex; gap: 10px; align-items: center; }
+
+  .btn {
+    font-family: 'Nunito', sans-serif;
+    font-weight: 800;
+    font-size: 0.9rem;
+    border: none;
+    border-radius: 50px;
+    padding: 9px 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    white-space: nowrap;
+  }
+  .btn:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 6px 18px rgba(0,0,0,0.25); }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-screenshot { background: linear-gradient(135deg, #ffb300, #ff8f00); color: white; }
+  .btn-save       { background: linear-gradient(135deg, #26a69a, #00796b); color: white; }
+  .btn-signin     { background: linear-gradient(135deg, #ab47bc, #7b1fa2); color: white; }
+  .btn-clear      { background: linear-gradient(135deg, #ef5350, #c62828); color: white; }
+
+  /* ── MAIN LAYOUT ── */
+  .app-body {
+    display: flex;
+    height: calc(100vh - 66px);
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    width: 210px;
+    min-width: 180px;
+    background: var(--panel-bg);
+    border-right: 3px solid #c8e6c9;
+    padding: 14px 10px;
+    overflow-y: auto;
+    box-shadow: var(--shadow);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .sidebar h2 {
+    font-family: 'Fredoka One', cursive;
+    color: #2e7d32;
+    font-size: 1.05rem;
+    text-align: center;
+    margin-bottom: 8px;
+    letter-spacing: 0.5px;
+  }
+  .sidebar-section-label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: #888;
+    padding: 6px 4px 2px;
+  }
+
+  .equipment-item {
+    background: linear-gradient(135deg, #f9fbe7, #e8f5e9);
+    border: 2.5px solid #a5d6a7;
+    border-radius: 14px;
+    padding: 10px 8px;
+    cursor: grab;
+    text-align: center;
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+    user-select: none;
+    position: relative;
+  }
+  .equipment-item:hover {
+    transform: scale(1.05) translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    border-color: var(--grass);
+  }
+  .equipment-item:active { cursor: grabbing; transform: scale(0.97); }
+  .equipment-item .eq-icon { font-size: 2.2rem; line-height: 1; display: block; }
+  .equipment-item .eq-name {
+    font-size: 0.73rem;
+    font-weight: 700;
+    color: #33691e;
+    margin-top: 4px;
+    display: block;
+  }
+
+  /* ── MAP AREA ── */
+  .map-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #viewDiv {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ── PLACED ITEMS OVERLAY ── */
+  #overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .placed-item {
+    position: absolute;
+    pointer-events: all;
+    cursor: move;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform: translate(-50%, -50%);
+    user-select: none;
+    transition: filter 0.15s;
+  }
+  .placed-item:hover { filter: drop-shadow(0 4px 10px rgba(0,0,0,0.4)); }
+  .placed-item.selected { filter: drop-shadow(0 0 12px #ffb300) drop-shadow(0 0 4px #ff8f00); }
+
+  .placed-icon {
+    font-size: 2.5rem;
+    line-height: 1;
+    display: block;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+  }
+
+  .placed-label-wrap {
+    margin-top: 3px;
+    position: relative;
+  }
+  .placed-label {
+    background: rgba(255,255,255,0.92);
+    border: 2px solid #a5d6a7;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: #1b5e20;
+    text-align: center;
+    min-width: 60px;
+    max-width: 120px;
+    cursor: text;
+    outline: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .placed-label:focus {
+    border-color: var(--sun);
+    box-shadow: 0 0 0 3px rgba(255,179,0,0.35);
+    overflow: visible;
+    white-space: normal;
+  }
+  .delete-btn {
+    position: absolute;
+    top: -28px;
+    right: -12px;
+    background: var(--red);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    z-index: 20;
+  }
+  .placed-item.selected .delete-btn { display: flex; }
+
+  /* ── DROP ZONE HIGHLIGHT ── */
+  .map-container.drag-over::after {
+    content: '🌳 Drop here to place equipment!';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(76,175,80,0.92);
+    color: white;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.4rem;
+    padding: 18px 36px;
+    border-radius: 20px;
+    pointer-events: none;
+    z-index: 50;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    letter-spacing: 1px;
+  }
+
+  /* ── SIGN-IN MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: white;
+    border-radius: var(--radius);
+    padding: 32px;
+    max-width: 420px;
+    width: 92%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    text-align: center;
+    animation: popIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes popIn {
+    from { transform: scale(0.7); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
+  }
+  .modal h2 {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.6rem;
+    color: #1565c0;
+    margin-bottom: 8px;
+  }
+  .modal p { color: #555; font-size: 0.95rem; margin-bottom: 20px; line-height: 1.5; }
+
+  .modal input {
+    width: 100%;
+    padding: 11px 16px;
+    border: 2.5px solid #90caf9;
+    border-radius: 12px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .modal input:focus { border-color: #1565c0; }
+
+  .modal-actions { display: flex; gap: 10px; justify-content: center; margin-top: 8px; }
+  .btn-primary { background: linear-gradient(135deg, #1565c0, #0d47a1); color: white; }
+  .btn-cancel  { background: #f5f5f5; color: #555; }
+
+  /* ── SAVE STATUS ── */
+  .save-status {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: linear-gradient(135deg, #2e7d32, #1b5e20);
+    color: white;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1rem;
+    padding: 13px 28px;
+    border-radius: 50px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    z-index: 500;
+    transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    letter-spacing: 0.5px;
+  }
+  .save-status.show { transform: translateX(-50%) translateY(0); }
+
+  /* ── SCREENSHOT FLASH ── */
+  .flash {
+    position: fixed;
+    inset: 0;
+    background: white;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 999;
+    transition: opacity 0.08s;
+  }
+  .flash.active { opacity: 0.85; }
+
+  /* ── TOOLTIP ── */
+  .sidebar-tip {
+    background: #fff9c4;
+    border: 2px dashed #ffb300;
+    border-radius: 12px;
+    padding: 9px 10px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #5d4037;
+    text-align: center;
+    margin-top: 4px;
+  }
+
+  /* ── LOADING ── */
+  #map-loading {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #e8f5e9, #e3f2fd);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.4rem;
+    color: #2e7d32;
+    gap: 16px;
+  }
+  .spinner {
+    width: 50px; height: 50px;
+    border: 5px solid #a5d6a7;
+    border-top-color: #2e7d32;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* scrollbar */
+  .sidebar::-webkit-scrollbar { width: 6px; }
+  .sidebar::-webkit-scrollbar-track { background: transparent; }
+  .sidebar::-webkit-scrollbar-thumb { background: #a5d6a7; border-radius: 10px; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="header-emoji">🌳</span>
+  <h1>Park Designer</h1>
+  <div class="header-actions">
+    <button class="btn btn-signin" id="signinBtn" onclick="showSignIn()">🔑 Sign In to ArcGIS</button>
+    <button class="btn btn-screenshot" onclick="takeScreenshot()">📸 Screenshot</button>
+    <button class="btn btn-save" onclick="saveToArcGIS()">💾 Save to ArcGIS</button>
+    <button class="btn btn-clear" onclick="clearAll()">🗑️ Clear All</button>
+  </div>
+</header>
+
+<div class="app-body">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <h2>🎠 Equipment</h2>
+    <div class="sidebar-tip">Drag items onto the map to design your park!</div>
+
+    <div class="sidebar-section-label">🎡 Rides & Play</div>
+
+    <div class="equipment-item" draggable="true" data-type="slide" data-icon="🛝" data-label="Slide">
+      <span class="eq-icon">🛝</span>
+      <span class="eq-name">Slide</span>
+    </div>
+    <div class="equipment-item" draggable="true" data-type="swings" data-icon="🎠" data-label="Swings">
+      <span class="eq-icon">🎠</span>
+      <span class="eq-name">Swing Set</span>
+    </div>
+    <div class="equipment-item" draggable="true" data-type="merry-go-round" data-icon="🎡" data-label="Merry-Go-Round">
+      <span class="eq-icon">🎡</span>
+      <span class="eq-name">Merry-Go-Round</span>
+    </div>
+    <div class="equipment-item" draggable="true" data-type="seesaw" data-icon="⚖️" data-label="Seesaw">
+      <span class="eq-icon">⚖️</span>
+      <span class="eq-name">Seesaw</span>
+    </div>
+    <div class="equipment-item" draggable="true" data-type="climbing" data-icon="🧗" data-label="Climbing Wall">
+      <span class="eq-icon">🧗</span>
+      <span class="eq-name">Climbing Wall</span>
+    </div>
+    <div class="equipment-item" draggable="true" data-type="monkey-bars" data-icon="🐒" data-label="Monkey Bars">
+      <span class="eq-icon">🐒</span>
+      <span class="eq-name">Monkey Bars</span>
+    </div>
+    <div class="equipment-item" draggable="true" data-type="sandbox" data-icon="🏖️" data-label="Sandbox">
+      <span class="eq-icon">🏖️</span>
+      <span class="eq-name">Sandbox</span>
+    </div>
+    <div class="equipment-item" draggable="true" data-type="balance-beam" data-icon="🤸" data-label="Balance Beam">
+      <span class="eq-icon">🤸</span>
+      <span class="eq-name">Balance Beam</span>
+    </div>
+
+    <div class="sidebar-section-label">🌿 Outdoor & Sports</div>
+
+    <div class="equipment-item" draggable="true" data-type="basketball" data-icon="🏀" data-label="Basketball Hoop">
+      <span class="eq-icon">🏀</span>
+      <span class="eq-name">Basketball</span>
+    </div>
+    <div class="equipment-item" draggable="true" data-type="soccer" data-icon="⚽" data-label="Soccer Goal">
+      <span class="eq-icon">⚽</span>
+      <span class="eq-name">Soccer Goal</span>
+    </div>
+    <div class="equipment-item" draggable="true" data-type="picnic" data-icon="🪑" data-label="Picnic Table">
+      <span class="eq-icon">🪑</span>
+      <span class="eq-name">Picnic Table</span>
+    </div>
+    <div class="equipment-item" draggable="true" data-type="fountain" data-icon="⛲" data-label="Fountain">
+      <span class="eq-icon">⛲</span>
+      <span class="eq-name">Fountain</span>
+    </div>
+    <div class="equipment-item" draggable="true" data-type="tree" data-icon="🌳" data-label="Tree">
+      <span class="eq-icon">🌳</span>
+      <span class="eq-name">Tree</span>
+    </div>
+    <div class="equipment-item" draggable="true" data-type="restroom" data-icon="🚻" data-label="Restrooms">
+      <span class="eq-icon">🚻</span>
+      <span class="eq-name">Restrooms</span>
+    </div>
+    <div class="equipment-item" draggable="true" data-type="bench" data-icon="🪵" data-label="Bench">
+      <span class="eq-icon">🪵</span>
+      <span class="eq-name">Bench</span>
+    </div>
+    <div class="equipment-item" draggable="true" data-type="trash" data-icon="🗑️" data-label="Trash Can">
+      <span class="eq-icon">🗑️</span>
+      <span class="eq-name">Trash Can</span>
+    </div>
+  </div>
+
+  <!-- MAP AREA -->
+  <div class="map-container" id="mapContainer">
+    <div id="map-loading">
+      <div class="spinner"></div>
+      Loading your map...
+    </div>
+    <div id="viewDiv"></div>
+    <div id="overlay"></div>
+  </div>
+</div>
+
+<!-- SIGN-IN MODAL -->
+<div class="modal-overlay" id="signinModal">
+  <div class="modal">
+    <h2>🗺️ Sign In to ArcGIS</h2>
+    <p>Enter your ArcGIS Online credentials to save your park design as a web map!</p>
+    <input type="text" id="arcgisUser" placeholder="ArcGIS Username" autocomplete="username">
+    <input type="password" id="arcgisPass" placeholder="Password" autocomplete="current-password">
+    <div id="signinError" style="color:#c62828;font-size:0.85rem;font-weight:700;min-height:20px;margin-bottom:8px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closeSignIn()">Cancel</button>
+      <button class="btn btn-primary" onclick="doSignIn()">🔑 Sign In</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCREENSHOT FLASH -->
+<div class="flash" id="flash"></div>
+
+<!-- STATUS TOAST -->
+<div class="save-status" id="saveStatus">✅ Saved!</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────
+let placedItems = [];
+let dragData = null;
+let selectedItem = null;
+let arcgisToken = null;
+let arcgisUsername = null;
+let view = null;
+
+// ─────────────────────────────────────────────
+//  ARCGIS MAP INIT
+// ─────────────────────────────────────────────
+require([
+  "esri/Map",
+  "esri/views/MapView",
+  "esri/layers/FeatureLayer",
+  "esri/identity/IdentityManager",
+  "esri/portal/Portal",
+  "esri/portal/PortalItem",
+  "esri/layers/MediaLayer",
+  "esri/geometry/Point"
+], function(Map, MapView, FeatureLayer, IdentityManager, Portal, PortalItem, MediaLayer, Point) {
+
+  window._esriModules = { IdentityManager, Portal, PortalItem, MediaLayer, Point, Map, MapView };
+
+  const map = new Map({ basemap: "streets-navigation-vector" });
+
+  view = new MapView({
+    container: "viewDiv",
+    map: map,
+    center: [-98.5795, 39.8283],   // center of USA
+    zoom: 5,
+    ui: { components: ["zoom", "compass", "attribution"] }
+  });
+
+  window._esriView = view;
+  window._esriMap = map;
+
+  view.when(() => {
+    document.getElementById('map-loading').style.display = 'none';
+    setupDrop();
+  });
+});
+
+// ─────────────────────────────────────────────
+//  DRAG FROM SIDEBAR
+// ─────────────────────────────────────────────
+document.querySelectorAll('.equipment-item').forEach(el => {
+  el.addEventListener('dragstart', e => {
+    dragData = {
+      type: el.dataset.type,
+      icon: el.dataset.icon,
+      label: el.dataset.label
+    };
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('text/plain', el.dataset.type);
+  });
+  el.addEventListener('dragend', () => { });
+});
+
+// ─────────────────────────────────────────────
+//  DROP ONTO MAP
+// ─────────────────────────────────────────────
+function setupDrop() {
+  const mapContainer = document.getElementById('mapContainer');
+
+  mapContainer.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    mapContainer.classList.add('drag-over');
+  });
+
+  mapContainer.addEventListener('dragleave', e => {
+    if (!mapContainer.contains(e.relatedTarget)) {
+      mapContainer.classList.remove('drag-over');
+    }
+  });
+
+  mapContainer.addEventListener('drop', e => {
+    e.preventDefault();
+    mapContainer.classList.remove('drag-over');
+    if (!dragData) return;
+
+    // Get position relative to overlay
+    const overlay = document.getElementById('overlay');
+    const rect = overlay.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // Convert screen coords to map point for storage
+    const mapPoint = view.toMap({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+
+    const id = Date.now() + Math.random();
+    const item = {
+      id,
+      type: dragData.type,
+      icon: dragData.icon,
+      label: dragData.label,
+      x, y,
+      mapLon: mapPoint ? mapPoint.longitude : 0,
+      mapLat: mapPoint ? mapPoint.latitude : 0
+    };
+
+    placedItems.push(item);
+    renderItem(item);
+    dragData = null;
+  });
+}
+
+// ─────────────────────────────────────────────
+//  RENDER A PLACED ITEM
+// ─────────────────────────────────────────────
+function renderItem(item) {
+  const overlay = document.getElementById('overlay');
+
+  const el = document.createElement('div');
+  el.className = 'placed-item';
+  el.id = 'item-' + item.id;
+  el.style.left = item.x + 'px';
+  el.style.top  = item.y + 'px';
+
+  el.innerHTML = `
+    <span class="placed-icon">${item.icon}</span>
+    <div class="placed-label-wrap">
+      <button class="delete-btn" title="Remove">✕</button>
+      <div class="placed-label" contenteditable="true" spellcheck="false"
+           data-id="${item.id}">${item.label}</div>
+    </div>
+  `;
+
+  // Label edit → update data
+  const labelEl = el.querySelector('.placed-label');
+  labelEl.addEventListener('input', () => {
+    const found = placedItems.find(i => i.id === item.id);
+    if (found) found.label = labelEl.textContent.trim().slice(0, 40);
+  });
+  labelEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); labelEl.blur(); }
+  });
+
+  // Click → select
+  el.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('delete-btn')) return;
+    if (e.target.classList.contains('placed-label')) return;
+    selectItem(item.id);
+    startDragItem(e, item, el);
+  });
+
+  // Delete btn
+  el.querySelector('.delete-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    removeItem(item.id);
+  });
+
+  overlay.appendChild(el);
+}
+
+// ─────────────────────────────────────────────
+//  ITEM SELECTION
+// ─────────────────────────────────────────────
+function selectItem(id) {
+  document.querySelectorAll('.placed-item').forEach(el => el.classList.remove('selected'));
+  const el = document.getElementById('item-' + id);
+  if (el) el.classList.add('selected');
+  selectedItem = id;
+}
+
+document.addEventListener('mousedown', e => {
+  if (!e.target.closest('.placed-item')) {
+    document.querySelectorAll('.placed-item').forEach(el => el.classList.remove('selected'));
+    selectedItem = null;
+  }
+});
+
+// ─────────────────────────────────────────────
+//  DRAG PLACED ITEM (reposition)
+// ─────────────────────────────────────────────
+function startDragItem(e, item, el) {
+  e.preventDefault();
+  const overlay = document.getElementById('overlay');
+  const rect = overlay.getBoundingClientRect();
+
+  const startX = e.clientX;
+  const startY = e.clientY;
+  const origX = item.x;
+  const origY = item.y;
+
+  function onMove(ev) {
+    const dx = ev.clientX - startX;
+    const dy = ev.clientY - startY;
+    item.x = origX + dx;
+    item.y = origY + dy;
+    el.style.left = item.x + 'px';
+    el.style.top  = item.y + 'px';
+
+    // Update map coordinate
+    const mp = view.toMap({ x: item.x, y: item.y });
+    if (mp) { item.mapLon = mp.longitude; item.mapLat = mp.latitude; }
+  }
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+
+// ─────────────────────────────────────────────
+//  REMOVE ITEM
+// ─────────────────────────────────────────────
+function removeItem(id) {
+  placedItems = placedItems.filter(i => i.id !== id);
+  const el = document.getElementById('item-' + id);
+  if (el) { el.style.transform = 'scale(0)'; setTimeout(() => el.remove(), 200); }
+}
+
+// ─────────────────────────────────────────────
+//  CLEAR ALL
+// ─────────────────────────────────────────────
+function clearAll() {
+  if (placedItems.length === 0) return;
+  if (!confirm('Remove all equipment from your park? 🗑️')) return;
+  placedItems = [];
+  document.getElementById('overlay').innerHTML = '';
+}
+
+// ─────────────────────────────────────────────
+//  SCREENSHOT
+// ─────────────────────────────────────────────
+async function takeScreenshot() {
+  // Flash effect
+  const flash = document.getElementById('flash');
+  flash.classList.add('active');
+  setTimeout(() => flash.classList.remove('active'), 300);
+
+  try {
+    // Take ArcGIS screenshot of the map
+    const screenshot = await view.takeScreenshot({ quality: 95 });
+
+    // Build a canvas that composites map + overlay emoji items
+    const canvas = document.createElement('canvas');
+    const mapContainer = document.getElementById('mapContainer');
+    canvas.width  = mapContainer.clientWidth;
+    canvas.height = mapContainer.clientHeight;
+    const ctx = canvas.getContext('2d');
+
+    // Draw map screenshot
+    const mapImg = new Image();
+    mapImg.src = screenshot.dataUrl;
+    await new Promise(r => { mapImg.onload = r; });
+    ctx.drawImage(mapImg, 0, 0, canvas.width, canvas.height);
+
+    // Draw placed items
+    for (const item of placedItems) {
+      ctx.font = '38px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0,0,0,0.3)';
+      ctx.shadowBlur = 6;
+      ctx.fillText(item.icon, item.x, item.y - 8);
+
+      // Label
+      ctx.shadowBlur = 0;
+      ctx.font = 'bold 13px Nunito, sans-serif';
+      ctx.fillStyle = '#1b5e20';
+      const lw = ctx.measureText(item.label).width + 20;
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      roundRect(ctx, item.x - lw/2, item.y + 16, lw, 22, 11);
+      ctx.fill();
+      ctx.strokeStyle = '#a5d6a7';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = '#1b5e20';
+      ctx.fillText(item.label, item.x, item.y + 27);
+    }
+
+    // Add title watermark
+    ctx.font = 'bold 22px "Fredoka One", cursive';
+    ctx.fillStyle = 'rgba(46,125,50,0.85)';
+    ctx.textAlign = 'left';
+    ctx.fillText('🌳 Park Designer', 16, 32);
+
+    // Download
+    const link = document.createElement('a');
+    link.download = 'my-park-design.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    showToast('📸 Screenshot saved!', '#1565c0');
+  } catch(err) {
+    console.error(err);
+    showToast('📸 Screenshot ready — check your downloads!', '#2e7d32');
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ─────────────────────────────────────────────
+//  ARCGIS SIGN-IN
+// ─────────────────────────────────────────────
+function showSignIn() {
+  document.getElementById('signinModal').classList.add('open');
+  document.getElementById('signinError').textContent = '';
+}
+function closeSignIn() {
+  document.getElementById('signinModal').classList.remove('open');
+}
+
+async function doSignIn() {
+  const user = document.getElementById('arcgisUser').value.trim();
+  const pass = document.getElementById('arcgisPass').value;
+  const errEl = document.getElementById('signinError');
+  errEl.textContent = '';
+
+  if (!user || !pass) { errEl.textContent = 'Please enter both username and password.'; return; }
+
+  try {
+    // Generate token from ArcGIS Online
+    const params = new URLSearchParams({
+      username: user,
+      password: pass,
+      referer: window.location.href,
+      expiration: 120,
+      f: 'json'
+    });
+
+    const res = await fetch('https://www.arcgis.com/sharing/rest/generateToken', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString()
+    });
+    const data = await res.json();
+
+    if (data.error || !data.token) {
+      errEl.textContent = data.error?.message || 'Invalid credentials. Please try again.';
+      return;
+    }
+
+    arcgisToken = data.token;
+    arcgisUsername = user;
+
+    // Register with ArcGIS Identity Manager
+    const { IdentityManager } = window._esriModules;
+    IdentityManager.registerToken({
+      server: 'https://www.arcgis.com',
+      token: arcgisToken,
+      userId: arcgisUsername,
+      expires: data.expires
+    });
+
+    closeSignIn();
+    document.getElementById('signinBtn').textContent = `✅ ${user}`;
+    document.getElementById('signinBtn').style.background = 'linear-gradient(135deg,#2e7d32,#1b5e20)';
+    showToast(`👋 Welcome, ${user}!`, '#2e7d32');
+  } catch(err) {
+    errEl.textContent = 'Connection error. Check your internet and try again.';
+    console.error(err);
+  }
+}
+
+// ─────────────────────────────────────────────
+//  SAVE TO ARCGIS ONLINE AS WEB MAP
+// ─────────────────────────────────────────────
+async function saveToArcGIS() {
+  if (!arcgisToken) {
+    showToast('🔑 Please sign in to ArcGIS Online first!', '#c62828');
+    showSignIn();
+    return;
+  }
+  if (placedItems.length === 0) {
+    showToast('🌳 Place some equipment on the map first!', '#e65100');
+    return;
+  }
+
+  showToast('💾 Saving your park...', '#1565c0');
+
+  try {
+    // Build GeoJSON feature collection from placed items
+    const features = placedItems.map(item => ({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [item.mapLon, item.mapLat] },
+      properties: {
+        name:  item.label,
+        type:  item.type,
+        icon:  item.icon,
+        title: item.label
+      }
+    }));
+
+    const geojson = {
+      type: "FeatureCollection",
+      features
+    };
+
+    // Build the web map JSON (ArcGIS format)
+    const extent = view.extent;
+    const center = view.center;
+
+    const webmapJson = {
+      operationalLayers: [
+        {
+          id: "parkEquipment",
+          title: "Park Equipment",
+          layerType: "GeoJSON",
+          url: null,
+          featureCollection: {
+            layers: [{
+              layerDefinition: {
+                geometryType: "esriGeometryPoint",
+                objectIdField: "OBJECTID",
+                fields: [
+                  { name: "OBJECTID", alias: "OBJECTID", type: "esriFieldTypeOID" },
+                  { name: "name",     alias: "Name",     type: "esriFieldTypeString", length: 100 },
+                  { name: "type",     alias: "Type",     type: "esriFieldTypeString", length: 50 },
+                  { name: "icon",     alias: "Icon",     type: "esriFieldTypeString", length: 10 }
+                ]
+              },
+              featureSet: {
+                geometryType: "esriGeometryPoint",
+                spatialReference: { wkid: 4326 },
+                features: placedItems.map((item, idx) => ({
+                  attributes: {
+                    OBJECTID: idx + 1,
+                    name: item.label,
+                    type: item.type,
+                    icon: item.icon
+                  },
+                  geometry: {
+                    x: item.mapLon,
+                    y: item.mapLat,
+                    spatialReference: { wkid: 4326 }
+                  }
+                }))
+              },
+              drawingInfo: {
+                renderer: {
+                  type: "simple",
+                  symbol: {
+                    type: "esriSMS",
+                    style: "esriSMSCircle",
+                    color: [76, 175, 80, 255],
+                    size: 12,
+                    outline: { color: [255,255,255,255], width: 2 }
+                  }
+                },
+                labelingInfo: [{
+                  labelPlacement: "esriServerPointLabelPlacementAboveCenter",
+                  labelExpression: "[name]",
+                  symbol: {
+                    type: "esriTS",
+                    color: [27,94,32,255],
+                    font: { size: 11, weight: "bold" }
+                  }
+                }]
+              }
+            }]
+          },
+          popupInfo: {
+            title: "{name}",
+            fieldInfos: [
+              { fieldName: "name", label: "Equipment Name", visible: true },
+              { fieldName: "type", label: "Type", visible: true }
+            ]
+          }
+        }
+      ],
+      baseMap: {
+        baseMapLayers: [{
+          id: "basemap",
+          layerType: "ArcGISTiledMapServiceLayer",
+          url: "https://services.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer",
+          title: "Streets"
+        }],
+        title: "Streets"
+      },
+      spatialReference: { wkid: 102100, latestWkid: 3857 },
+      initialState: {
+        viewpoint: {
+          targetGeometry: {
+            spatialReference: { wkid: 102100, latestWkid: 3857 },
+            xmin: extent ? extent.xmin : -15000000,
+            ymin: extent ? extent.ymin : 2500000,
+            xmax: extent ? extent.xmax : -6000000,
+            ymax: extent ? extent.ymax : 7000000
+          }
+        }
+      },
+      authoringApp: "PlaygroundCreator",
+      authoringAppVersion: "1.0",
+      version: "2.26"
+    };
+
+    // Add item to ArcGIS Online portal
+    const addParams = new URLSearchParams({
+      f: 'json',
+      token: arcgisToken,
+      title: `My Park Design - ${new Date().toLocaleDateString()}`,
+      type: 'Web Map',
+      tags: 'park,playground,student design',
+      description: `A playground park design created by ${arcgisUsername} using Park Designer Pro`,
+      text: JSON.stringify(webmapJson),
+      snippet: `Park with ${placedItems.length} equipment items: ${[...new Set(placedItems.map(i=>i.label))].join(', ')}`
+    });
+
+    const saveRes = await fetch(
+      `https://www.arcgis.com/sharing/rest/content/users/${arcgisUsername}/addItem`,
+      { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: addParams.toString() }
+    );
+    const saveData = await saveRes.json();
+
+    if (saveData.success && saveData.id) {
+      const mapUrl = `https://www.arcgis.com/home/item.html?id=${saveData.id}`;
+      showToast(`✅ Park saved! Opening in ArcGIS...`, '#2e7d32');
+      setTimeout(() => window.open(mapUrl, '_blank'), 1500);
+    } else {
+      throw new Error(saveData.error?.message || 'Save failed');
+    }
+  } catch(err) {
+    console.error(err);
+    showToast('❌ Save failed: ' + (err.message || 'Unknown error'), '#c62828');
+  }
+}
+
+// ─────────────────────────────────────────────
+//  TOAST NOTIFICATION
+// ─────────────────────────────────────────────
+let toastTimeout;
+function showToast(msg, bg = '#2e7d32') {
+  const el = document.getElementById('saveStatus');
+  el.textContent = msg;
+  el.style.background = bg;
+  el.classList.add('show');
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => el.classList.remove('show'), 3200);
+}
+</script>
+</body>
+</html>
