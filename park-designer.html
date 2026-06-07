@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌳 Build a Park v.9</title>
+<title>🌳 Build a Park v.10</title>
 
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -586,7 +586,7 @@
 
 <header>
   <span class="header-emoji">🌳</span>
-  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v.9</span></h1>
+  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v.10</span></h1>
   <div class="header-actions">
     <button class="btn btn-screenshot" onclick="takeScreenshot()">📸 Screenshot</button>
     <button class="btn btn-save" onclick="saveToArcGIS()">💾 Save to ArcGIS</button>
@@ -1010,7 +1010,7 @@ async function takeScreenshot() {
     ctx.font = 'bold 22px "Fredoka One", cursive';
     ctx.fillStyle = 'rgba(46,125,50,0.85)';
     ctx.textAlign = 'left';
-    ctx.fillText('🌳 Build a Park v.9', 16, 32);
+    ctx.fillText('🌳 Build a Park v.10', 16, 32);
 
     // Restore hidden UI elements
     hideEls.forEach(el => el.style.visibility = '');
@@ -1107,11 +1107,25 @@ async function doSignIn() {
     const AGO = 'https://www.arcgis.com/sharing/rest';
     const tok = arcgisToken;
 
-    // Helper: POST to ArcGIS REST
+    // Helper: POST to ArcGIS REST (portal)
     async function agoPost(url, params) {
       params.token = tok;
       params.f = 'json';
       const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(params).toString()
+      });
+      return res.json();
+    }
+
+    // Helper: POST to Feature Service REST endpoints (services#.arcgis.com)
+    // These require token in the URL, not just the body
+    async function svcPost(url, params) {
+      params.token = tok;
+      params.f = 'json';
+      const urlWithToken = `${url}?token=${encodeURIComponent(tok)}`;
+      const res = await fetch(urlWithToken, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams(params).toString()
@@ -1183,7 +1197,7 @@ async function doSignIn() {
     errEl.textContent = '⏳ Step 2/4 — Creating hosted feature service…';
 
     const serviceParams = {
-      name: (title + '_data').replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 60),
+      name: ((title + '_data').replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 50)) + '_' + Date.now().toString().slice(-6),
       serviceDescription: `Park equipment layer for: ${title}`,
       hasStaticData: false,
       maxRecordCount: 1000,
@@ -1234,7 +1248,7 @@ async function doSignIn() {
       supportsApplyEditsWithGlobalIds: false
     };
 
-    const addLayerRes = await agoPost(
+    const addLayerRes = await svcPost(
       `${serviceUrl}/addToDefinition`,
       { addToDefinition: JSON.stringify({ layers: [layerDef] }) }
     );
@@ -1261,7 +1275,7 @@ async function doSignIn() {
       }
     }));
 
-    const editsRes = await agoPost(
+    const editsRes = await svcPost(
       `${serviceUrl}/0/applyEdits`,
       { adds: JSON.stringify(features), rollbackOnFailure: true }
     );
@@ -1336,7 +1350,7 @@ async function doSignIn() {
         title,
         type: 'Web Map',
         tags: 'park,playground,student design',
-        description: `A park design created by ${arcgisUsername} using Build a Park v.9`,
+        description: `A park design created by ${arcgisUsername} using Build a Park v.10`,
         snippet: `Park with ${placedItems.length} equipment items: ${[...new Set(placedItems.map(i=>i.label))].join(', ')}`,
         text: JSON.stringify(webmapJson),
         extent: extent ? `${extent.xmin},${extent.ymin},${extent.xmax},${extent.ymax}` : '-125,24,-66,49'
