@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌳 Build a Park v1.0</title>
+<title>🌳 Build a Park v1.1</title>
 
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -630,7 +630,7 @@
 
 <header>
   <span class="header-emoji">🌳</span>
-  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v1.0</span></h1>
+  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v1.1</span></h1>
   <div class="header-actions">
     <button class="btn btn-screenshot" onclick="takeScreenshot()">📸 Screenshot</button>
     <button class="btn btn-save" onclick="saveToArcGIS()">💾 Save to ArcGIS</button>
@@ -1142,7 +1142,7 @@ async function doScreenshot() {
     ctx.fillStyle = 'rgba(46,125,50,0.75)';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'bottom';
-    ctx.fillText('Build a Park v1.0', 10, canvas.height - 8);
+    ctx.fillText('Build a Park v1.1', 10, canvas.height - 8);
 
     // Restore hidden UI elements
     hideEls.forEach(el => el.style.visibility = '');
@@ -1648,7 +1648,7 @@ async function doSignIn() {
         type: 'Web Map',
         tags: 'park,playground,student design',
         typeKeywords: 'Mapmaker,Atlas,0cd1cdee853c413a84bfe4b9a6931f0d,Web Map',
-        description: `A park design created by ${arcgisUsername} using Build a Park v1.0`,
+        description: `A park design created by ${arcgisUsername} using Build a Park v1.1`,
         snippet: `Park with ${placedItems.length} equipment items: ${[...new Set(placedItems.map(i=>i.label))].join(', ')}`,
         text: JSON.stringify(webmapJson),
         extent: extent ? `${extent.xmin},${extent.ymin},${extent.xmax},${extent.ymax}` : '-125,24,-66,49'
