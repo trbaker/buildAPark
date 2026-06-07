@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌳 Build a Park v.8</title>
+<title>🌳 Build a Park v.9</title>
 
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -586,7 +586,7 @@
 
 <header>
   <span class="header-emoji">🌳</span>
-  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v.8</span></h1>
+  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v.9</span></h1>
   <div class="header-actions">
     <button class="btn btn-screenshot" onclick="takeScreenshot()">📸 Screenshot</button>
     <button class="btn btn-save" onclick="saveToArcGIS()">💾 Save to ArcGIS</button>
@@ -1010,7 +1010,7 @@ async function takeScreenshot() {
     ctx.font = 'bold 22px "Fredoka One", cursive';
     ctx.fillStyle = 'rgba(46,125,50,0.85)';
     ctx.textAlign = 'left';
-    ctx.fillText('🌳 Build a Park v.8', 16, 32);
+    ctx.fillText('🌳 Build a Park v.9', 16, 32);
 
     // Restore hidden UI elements
     hideEls.forEach(el => el.style.visibility = '');
@@ -1103,71 +1103,214 @@ async function doSignIn() {
     arcgisUsername = user;
 
     sysLog('success', 'ArcGIS token acquired', `User: ${user}, expires: ${new Date(tokenData.expires).toLocaleTimeString()}`);
-    // Token registered (IdentityManager not used with Leaflet)
 
-    // 2. Build web map JSON
+    const AGO = 'https://www.arcgis.com/sharing/rest';
+    const tok = arcgisToken;
+
+    // Helper: POST to ArcGIS REST
+    async function agoPost(url, params) {
+      params.token = tok;
+      params.f = 'json';
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(params).toString()
+      });
+      return res.json();
+    }
+
+    // Helper: share an item to the organisation
+    async function shareToOrg(itemId) {
+      const r = await agoPost(
+        `${AGO}/content/users/${arcgisUsername}/items/${itemId}/share`,
+        { everyone: false, org: true, groups: '' }
+      );
+      sysLog(r.results?.[0]?.success ? 'success' : 'warn',
+             'Share to org', `itemId: ${itemId} — ${JSON.stringify(r).slice(0,120)}`);
+      return r;
+    }
+
+    // ── STEP 1: Build unique-value renderer — one symbol per equipment type ──
+    errEl.textContent = '⏳ Step 1/4 — Building symbology…';
+
+    // Collect unique types present in this park
+    const uniqueTypes = [...new Map(placedItems.map(i => [i.type, i])).values()];
+
+    const uniqueValueInfos = uniqueTypes.map(item => ({
+      value: item.type,
+      label: item.label,
+      symbol: item.icon.startsWith('http') ? {
+        type: 'esriPMS',                       // Picture Marker Symbol
+        url: item.icon,
+        contentType: 'image/png',
+        width: 24,
+        height: 24
+      } : {
+        type: 'esriSMS',                       // Simple Marker Symbol (emoji fallback)
+        style: 'esriSMSCircle',
+        color: [76, 175, 80, 200],
+        size: 14,
+        outline: { color: [255,255,255,255], width: 1.5 }
+      }
+    }));
+
+    const drawingInfo = {
+      renderer: {
+        type: 'uniqueValue',
+        field1: 'equip_type',
+        defaultSymbol: {
+          type: 'esriSMS', style: 'esriSMSCircle',
+          color: [150,150,150,200], size: 12,
+          outline: { color: [255,255,255,255], width: 1 }
+        },
+        uniqueValueInfos
+      },
+      labelingInfo: [{
+        labelExpression: '[equip_name]',
+        labelPlacement: 'esriServerPointLabelPlacementAboveCenter',
+        useCodedValues: false,
+        symbol: {
+          type: 'esriTS',
+          color: [27, 94, 32, 255],
+          backgroundColor: [255,255,255,180],
+          font: { size: 9, weight: 'bold', family: 'Arial' }
+        },
+        minScale: 0, maxScale: 0
+      }]
+    };
+
+    // ── STEP 2: Create hosted Feature Service ──────────────────────────────
+    errEl.textContent = '⏳ Step 2/4 — Creating hosted feature service…';
+
+    const serviceParams = {
+      name: (title + '_data').replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 60),
+      serviceDescription: `Park equipment layer for: ${title}`,
+      hasStaticData: false,
+      maxRecordCount: 1000,
+      supportedQueryFormats: 'JSON',
+      capabilities: 'Query,Editing',
+      spatialReference: { wkid: 4326 },
+      initialExtent: {
+        xmin: -180, ymin: -90, xmax: 180, ymax: 90,
+        spatialReference: { wkid: 4326 }
+      }
+    };
+
+    const createSvcRes = await agoPost(
+      `${AGO}/content/users/${arcgisUsername}/createService`,
+      { createParameters: JSON.stringify(serviceParams), outputType: 'featureService' }
+    );
+
+    sysLog('info', 'createService response', JSON.stringify(createSvcRes).slice(0, 200));
+
+    if (!createSvcRes.serviceurl) {
+      sysLog('error', 'createService failed', JSON.stringify(createSvcRes));
+      throw new Error(createSvcRes.error?.message || 'Failed to create feature service');
+    }
+
+    const serviceUrl   = createSvcRes.serviceurl;
+    const serviceItemId = createSvcRes.itemId;
+    sysLog('success', 'Feature service created', serviceUrl);
+
+    // ── STEP 3: Add a layer to the service ────────────────────────────────
+    errEl.textContent = '⏳ Step 3/4 — Adding layer & features…';
+
+    const layerDef = {
+      name: 'Park Equipment',
+      type: 'Feature Layer',
+      geometryType: 'esriGeometryPoint',
+      spatialReference: { wkid: 4326 },
+      objectIdField: 'OBJECTID',
+      fields: [
+        { name: 'OBJECTID',   type: 'esriFieldTypeOID',    alias: 'OBJECTID' },
+        { name: 'equip_name', type: 'esriFieldTypeString', alias: 'Equipment Name', length: 100 },
+        { name: 'equip_type', type: 'esriFieldTypeString', alias: 'Equipment Type', length: 50 },
+        { name: 'icon_url',   type: 'esriFieldTypeString', alias: 'Icon URL',        length: 255 }
+      ],
+      drawingInfo,
+      capabilities: 'Query,Editing',
+      allowGeometryUpdates: true,
+      hasAttachments: false,
+      supportsApplyEditsWithGlobalIds: false
+    };
+
+    const addLayerRes = await agoPost(
+      `${serviceUrl}/addToDefinition`,
+      { addToDefinition: JSON.stringify({ layers: [layerDef] }) }
+    );
+
+    sysLog('info', 'addToDefinition response', JSON.stringify(addLayerRes).slice(0, 200));
+
+    if (!addLayerRes.success) {
+      sysLog('error', 'addToDefinition failed', JSON.stringify(addLayerRes));
+      throw new Error(addLayerRes.error?.message || 'Failed to add layer to service');
+    }
+    sysLog('success', 'Layer added to feature service');
+
+    // ── STEP 4: Add features (applyEdits) ─────────────────────────────────
+    const features = placedItems.map(item => ({
+      attributes: {
+        equip_name: item.label,
+        equip_type: item.type,
+        icon_url:   item.icon
+      },
+      geometry: {
+        x: item.mapLon,
+        y: item.mapLat,
+        spatialReference: { wkid: 4326 }
+      }
+    }));
+
+    const editsRes = await agoPost(
+      `${serviceUrl}/0/applyEdits`,
+      { adds: JSON.stringify(features), rollbackOnFailure: true }
+    );
+
+    sysLog('info', 'applyEdits response', JSON.stringify(editsRes).slice(0,200));
+    const addResults = editsRes.addResults || [];
+    const failed = addResults.filter(r => !r.success);
+    if (failed.length) {
+      sysLog('warn', `${failed.length} features failed to add`, JSON.stringify(failed[0]));
+    } else {
+      sysLog('success', `${addResults.length} features added to service`);
+    }
+
+    // ── STEP 5: Share feature service item to org ──────────────────────────
+    errEl.textContent = '⏳ Step 4/4 — Saving web map…';
+    await shareToOrg(serviceItemId);
+
+    // ── STEP 6: Build web map JSON referencing the hosted feature service ──
     const bounds = view.getBounds();
     const extent = bounds ? {
-      xmin: bounds.getWest(),
-      ymin: bounds.getSouth(),
-      xmax: bounds.getEast(),
-      ymax: bounds.getNorth()
+      xmin: bounds.getWest(), ymin: bounds.getSouth(),
+      xmax: bounds.getEast(), ymax: bounds.getNorth()
     } : null;
+
     const webmapJson = {
       operationalLayers: [{
-        id: "parkEquipment",
-        title: "Park Equipment",
-        layerType: "GeoJSON",
-        url: null,
-        featureCollection: {
-          layers: [{
-            layerDefinition: {
-              geometryType: "esriGeometryPoint",
-              objectIdField: "OBJECTID",
-              fields: [
-                { name: "OBJECTID", alias: "OBJECTID", type: "esriFieldTypeOID" },
-                { name: "name",     alias: "Name",     type: "esriFieldTypeString", length: 100 },
-                { name: "type",     alias: "Type",     type: "esriFieldTypeString", length: 50 },
-                { name: "icon",     alias: "Icon",     type: "esriFieldTypeString", length: 10 }
-              ]
-            },
-            featureSet: {
-              geometryType: "esriGeometryPoint",
-              spatialReference: { wkid: 4326 },
-              features: placedItems.map((item, idx) => ({
-                attributes: { OBJECTID: idx + 1, name: item.label, type: item.type, icon: item.icon },
-                geometry: { x: item.mapLon, y: item.mapLat, spatialReference: { wkid: 4326 } }
-              }))
-            },
-            drawingInfo: {
-              renderer: {
-                type: "simple",
-                symbol: { type: "esriSMS", style: "esriSMSCircle", color: [76,175,80,255], size: 12, outline: { color: [255,255,255,255], width: 2 } }
-              },
-              labelingInfo: [{
-                labelPlacement: "esriServerPointLabelPlacementAboveCenter",
-                labelExpression: "[name]",
-                symbol: { type: "esriTS", color: [27,94,32,255], font: { size: 11, weight: "bold" } }
-              }]
-            }
-          }]
-        },
+        id: 'parkEquipment',
+        title: 'Park Equipment',
+        url: `${serviceUrl}/0`,
+        layerType: 'ArcGISFeatureLayer',
+        opacity: 1,
+        visibility: true,
+        mode: 1,
         popupInfo: {
-          title: "{name}",
+          title: '{equip_name}',
           fieldInfos: [
-            { fieldName: "name", label: "Equipment Name", visible: true },
-            { fieldName: "type", label: "Type", visible: true }
+            { fieldName: 'equip_name', label: 'Equipment Name', visible: true },
+            { fieldName: 'equip_type', label: 'Type',           visible: true }
           ]
         }
       }],
       baseMap: {
         baseMapLayers: [{
-          id: "basemap",
-          layerType: "ArcGISTiledMapServiceLayer",
-          url: "https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer",
-          title: "World Topographic Map"
+          id: 'basemap',
+          layerType: 'ArcGISTiledMapServiceLayer',
+          url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer',
+          title: 'World Topographic Map'
         }],
-        title: "Topographic"
+        title: 'Topographic'
       },
       spatialReference: { wkid: 4326 },
       initialState: {
@@ -1181,43 +1324,44 @@ async function doSignIn() {
           }
         }
       },
-      authoringApp: "ParkDesigner",
-      authoringAppVersion: "1.0",
-      version: "2.26"
+      authoringApp: 'ParkDesigner',
+      authoringAppVersion: '1.0',
+      version: '2.26'
     };
 
-    // 3. Save to ArcGIS Online
-    const addParams = new URLSearchParams({
-      f: 'json',
-      token: arcgisToken,
-      title: title,
-      type: 'Web Map',
-      tags: 'park,playground,student design',
-      description: `A park design created by ${arcgisUsername} using Build a Park v.8`,
-      text: JSON.stringify(webmapJson),
-      snippet: `Park with ${placedItems.length} equipment items: ${[...new Set(placedItems.map(i=>i.label))].join(', ')}`
-    });
-
-    const saveRes  = await fetch(
-      `https://www.arcgis.com/sharing/rest/content/users/${arcgisUsername}/addItem?token=${encodeURIComponent(arcgisToken)}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: addParams.toString() }
+    // ── STEP 7: Save Web Map item ──────────────────────────────────────────
+    const wmRes = await agoPost(
+      `${AGO}/content/users/${arcgisUsername}/addItem`,
+      {
+        title,
+        type: 'Web Map',
+        tags: 'park,playground,student design',
+        description: `A park design created by ${arcgisUsername} using Build a Park v.9`,
+        snippet: `Park with ${placedItems.length} equipment items: ${[...new Set(placedItems.map(i=>i.label))].join(', ')}`,
+        text: JSON.stringify(webmapJson),
+        extent: extent ? `${extent.xmin},${extent.ymin},${extent.xmax},${extent.ymax}` : '-125,24,-66,49'
+      }
     );
-    const saveData = await saveRes.json();
-    sysLog('info', 'addItem response', JSON.stringify(saveData).slice(0, 200));
 
-    if (saveData.success && saveData.id) {
-      closeSignIn();
-      // Clear credentials for next use but keep map name blank
-      document.getElementById('arcgisPass').value = '';
-      document.getElementById('mapTitle').value = '';
-      sysLog('success', 'Web map saved to ArcGIS Online', `Item ID: ${saveData.id}`);
-      const mapUrl = `https://www.arcgis.com/home/item.html?id=${saveData.id}`;
-      showToast(`✅ "${title}" saved! Opening in ArcGIS...`, '#2e7d32');
-      setTimeout(() => window.open(mapUrl, '_blank'), 1500);
-    } else {
-      sysLog('error', 'ArcGIS addItem failed', JSON.stringify(saveData.error || saveData));
-      throw new Error(saveData.error?.message || 'Save failed');
+    sysLog('info', 'Web map addItem response', JSON.stringify(wmRes).slice(0,200));
+
+    if (!wmRes.success || !wmRes.id) {
+      sysLog('error', 'Web map save failed', JSON.stringify(wmRes.error || wmRes));
+      throw new Error(wmRes.error?.message || 'Failed to save web map');
     }
+
+    sysLog('success', 'Web map saved', `Item ID: ${wmRes.id}`);
+
+    // ── STEP 8: Share web map to org ───────────────────────────────────────
+    await shareToOrg(wmRes.id);
+
+    closeSignIn();
+    document.getElementById('arcgisPass').value = '';
+    document.getElementById('mapTitle').value = '';
+
+    const mapUrl = `https://www.arcgis.com/home/item.html?id=${wmRes.id}`;
+    showToast(`✅ "${title}" saved & shared to org!`, '#2e7d32');
+    setTimeout(() => window.open(mapUrl, '_blank'), 1500);
   } catch(err) {
     console.error(err);
     errEl.style.color = '#c62828';
