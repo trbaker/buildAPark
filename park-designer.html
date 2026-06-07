@@ -1289,56 +1289,37 @@ async function doSignIn() {
     // ── STEP 3: Publish CSV as hosted Feature Layer ────────────────────────
     errEl.textContent = '⏳ Step 3/4 — Publishing feature layer…';
 
-    // ── STEP 3a: Analyze CSV to get correct publish parameters ──────────────
-    errEl.textContent = '⏳ Step 3/4 — Analyzing CSV…';
+    // ── STEP 3: Publish CSV as hosted Feature Layer ───────────────────────
+    // Per ArcGIS REST docs: POST to /sharing/rest/content/users/{user}/publish
+    // with itemid, filetype, and publishParameters
+    errEl.textContent = '⏳ Step 3/4 — Publishing feature layer…';
 
-    const analyzeForm = new FormData();
-    analyzeForm.append('f', 'json');
-    analyzeForm.append('token', tok);
-    analyzeForm.append('itemid', csvItemId);
-    analyzeForm.append('filetype', 'csv');
-    analyzeForm.append('analyzeParameters', JSON.stringify({
-      enableGlobalGeocoding: false,
+    const publishParameters = {
+      type: 'csv',
+      name: csvName,
       locationType: 'coordinates',
       latitudeFieldName: 'latitude',
-      longitudeFieldName: 'longitude'
-    }));
-
-    const analyzeRes = await fetch(`${AGO}/content/analyze`, {
-      method: 'POST', body: analyzeForm
-    }).then(r => r.json());
-
-    sysLog('info', 'analyze response', JSON.stringify(analyzeRes).slice(0, 300));
-
-    // Merge our coordinate params into the analyzed publish parameters
-    const publishParameters = Object.assign(
-      analyzeRes.publishParameters || {},
-      {
-        name: csvName,
-        locationType: 'coordinates',
-        latitudeFieldName: 'latitude',
-        longitudeFieldName: 'longitude',
-        coordinateFieldType: 'LatLong',
-        hasStaticData: false,
-        targetSR: { wkid: 4326 }
-      }
-    );
+      longitudeFieldName: 'longitude',
+      coordinateFieldType: 'LatLong',
+      columnDelimiter: ',',
+      qualifier: '"',
+      hasStaticData: false,
+      maxRecordCount: 2000,
+      targetSR: { wkid: 102100, latestWkid: 3857 },
+      layerInfo: { capabilities: 'Query,Editing' }
+    };
 
     sysLog('info', 'publishParameters', JSON.stringify(publishParameters).slice(0, 300));
 
-    // ── STEP 3b: Publish CSV as hosted Feature Layer ───────────────────────
-    errEl.textContent = '⏳ Step 3/4 — Publishing feature layer…';
-
-    const publishForm = new FormData();
-    publishForm.append('f', 'json');
-    publishForm.append('token', tok);
-    publishForm.append('fileType', 'csv');
-    publishForm.append('publishParameters', JSON.stringify(publishParameters));
-
-    const publishRes = await fetch(
-      `${AGO}/content/users/${arcgisUsername}/items/${csvItemId}/publish`,
-      { method: 'POST', body: publishForm }
-    ).then(r => r.json());
+    // Use URL-encoded form — docs show itemid is a top-level param, not in publishParameters
+    const publishRes = await agoPost(
+      `${AGO}/content/users/${arcgisUsername}/publish`,
+      {
+        itemid: csvItemId,
+        filetype: 'csv',
+        publishParameters: JSON.stringify(publishParameters)
+      }
+    );
 
     sysLog('info', 'publish response', JSON.stringify(publishRes).slice(0, 400));
 
@@ -1356,7 +1337,7 @@ async function doSignIn() {
       throw new Error('Unexpected publish response — check error log');
     }
 
-    // ── STEP 3c: Poll until publish job completes ──────────────────────────
+    // ── Poll until publish job completes ──────────────────────────────────
     sysLog('info', 'Waiting for publish job…', serviceItemId);
     for (let i = 0; i < 24; i++) {
       await new Promise(r => setTimeout(r, 2500));
