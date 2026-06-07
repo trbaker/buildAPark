@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌳 Build a Park v.14</title>
+<title>🌳 Build a Park v1.0</title>
 
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -520,6 +520,57 @@
   }
   .log-count.visible { display: flex; }
 
+  /* ── SCREENSHOT TITLE MODAL ── */
+  .ss-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 1200;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(3px);
+  }
+  .ss-modal-overlay.open { display: flex; }
+  .ss-modal {
+    background: white;
+    border-radius: 20px;
+    padding: 28px 28px 22px;
+    width: min(420px, 92vw);
+    box-shadow: 0 16px 50px rgba(0,0,0,0.3);
+    animation: popIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    text-align: center;
+  }
+  .ss-modal h3 {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.3rem;
+    color: #1565c0;
+    margin-bottom: 6px;
+  }
+  .ss-modal p {
+    font-size: 0.85rem;
+    color: #777;
+    margin-bottom: 16px;
+    font-weight: 600;
+  }
+  .ss-title-input {
+    width: 100%;
+    padding: 11px 16px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    border: 2.5px solid #90caf9;
+    border-radius: 12px;
+    outline: none;
+    color: #1a237e;
+    text-align: center;
+    margin-bottom: 18px;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+  }
+  .ss-title-input:focus { border-color: #ffb300; }
+  .ss-modal-actions { display: flex; gap: 10px; justify-content: center; }
+
   /* ── SCREENSHOT FLASH ── */
   .flash {
     position: fixed;
@@ -579,7 +630,7 @@
 
 <header>
   <span class="header-emoji">🌳</span>
-  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v.14</span></h1>
+  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v1.0</span></h1>
   <div class="header-actions">
     <button class="btn btn-screenshot" onclick="takeScreenshot()">📸 Screenshot</button>
     <button class="btn btn-save" onclick="saveToArcGIS()">💾 Save to ArcGIS</button>
@@ -738,6 +789,22 @@
     </div>
     <div class="log-body" id="logBody">
       <div class="log-empty" id="logEmpty">No log entries yet.</div>
+    </div>
+  </div>
+</div>
+
+<!-- SCREENSHOT TITLE MODAL -->
+<div class="ss-modal-overlay" id="ssTitleOverlay">
+  <div class="ss-modal">
+    <h3>📸 Name Your Map</h3>
+    <p>Optional — add a title to display at the top of your screenshot.</p>
+    <input class="ss-title-input" id="ssTitleInput" type="text"
+           placeholder="e.g. My Dream Park"
+           maxlength="60"
+           onkeydown="if(event.key==='Enter') doScreenshot()">
+    <div class="ss-modal-actions">
+      <button class="btn btn-cancel" onclick="doScreenshot()">Skip</button>
+      <button class="btn btn-screenshot" onclick="doScreenshot()">📸 Take Screenshot</button>
     </div>
   </div>
 </div>
@@ -1000,7 +1067,17 @@ function clearAll() {
 // ─────────────────────────────────────────────
 //  SCREENSHOT
 // ─────────────────────────────────────────────
-async function takeScreenshot() {
+function takeScreenshot() {
+  // Show the title prompt modal
+  document.getElementById('ssTitleInput').value = '';
+  document.getElementById('ssTitleOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('ssTitleInput').focus(), 100);
+}
+
+async function doScreenshot() {
+  const userTitle = document.getElementById('ssTitleInput').value.trim();
+  document.getElementById('ssTitleOverlay').classList.remove('open');
+
   // Flash effect
   const flash = document.getElementById('flash');
   flash.classList.add('active');
@@ -1013,9 +1090,8 @@ async function takeScreenshot() {
   ];
   hideEls.forEach(el => el.style.visibility = 'hidden');
 
-  sysLog('info', 'Screenshot started');
+  sysLog('info', 'Screenshot started', userTitle ? `Title: "${userTitle}"` : 'No title');
   try {
-    // Capture map tiles + overlay with html2canvas
     const mapContainer = document.getElementById('mapContainer');
     const canvas = await html2canvas(mapContainer, {
       useCORS: true,
@@ -1026,22 +1102,51 @@ async function takeScreenshot() {
     });
     const ctx = canvas.getContext('2d');
 
-    // Add title watermark
-    ctx.font = 'bold 22px "Fredoka One", cursive';
-    ctx.fillStyle = 'rgba(46,125,50,0.85)';
+    // Draw user title centered at top if provided
+    if (userTitle) {
+      const padding = 14;
+      const fontSize = 28;
+      ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+      const textW = ctx.measureText(userTitle).width;
+      const boxW  = textW + padding * 2;
+      const boxH  = fontSize + padding;
+      const boxX  = (canvas.width - boxW) / 2;
+      const boxY  = 14;
+
+      // White background pill for readability
+      ctx.fillStyle = 'rgba(255,255,255,0.88)';
+      ctx.beginPath();
+      ctx.roundRect(boxX, boxY, boxW, boxH, 10);
+      ctx.fill();
+
+      // Title text
+      ctx.fillStyle = '#000000';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(userTitle, canvas.width / 2, boxY + padding / 2);
+    }
+
+    // App watermark bottom-left
+    ctx.font = 'bold 13px Arial, sans-serif';
+    ctx.fillStyle = 'rgba(46,125,50,0.75)';
     ctx.textAlign = 'left';
-    ctx.fillText('🌳 Build a Park v.14', 16, 32);
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('Build a Park v1.0', 10, canvas.height - 8);
 
     // Restore hidden UI elements
     hideEls.forEach(el => el.style.visibility = '');
 
-    // Download
+    const filename = userTitle
+      ? userTitle.replace(/[^a-zA-Z0-9 _-]/g, '').replace(/\s+/g, '-').toLowerCase() + '.png'
+      : 'my-park-design.png';
+
     const link = document.createElement('a');
-    link.download = 'my-park-design.png';
+    link.download = filename;
     link.href = canvas.toDataURL('image/png');
     link.click();
 
     showToast('📸 Screenshot saved!', '#1565c0');
+    sysLog('success', 'Screenshot saved', filename);
   } catch(err) {
     hideEls.forEach(el => el.style.visibility = '');
     console.error(err);
@@ -1495,7 +1600,7 @@ async function doSignIn() {
         title,
         type: 'Web Map',
         tags: 'park,playground,student design',
-        description: `A park design created by ${arcgisUsername} using Build a Park v.14`,
+        description: `A park design created by ${arcgisUsername} using Build a Park v1.0`,
         snippet: `Park with ${placedItems.length} equipment items: ${[...new Set(placedItems.map(i=>i.label))].join(', ')}`,
         text: JSON.stringify(webmapJson),
         extent: extent ? `${extent.xmin},${extent.ymin},${extent.xmax},${extent.ymax}` : '-125,24,-66,49'
