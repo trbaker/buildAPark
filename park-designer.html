@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌳 Build a Park v.12</title>
+<title>🌳 Build a Park v.13</title>
 
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -579,7 +579,7 @@
 
 <header>
   <span class="header-emoji">🌳</span>
-  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v.12</span></h1>
+  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v.13</span></h1>
   <div class="header-actions">
     <button class="btn btn-screenshot" onclick="takeScreenshot()">📸 Screenshot</button>
     <button class="btn btn-save" onclick="saveToArcGIS()">💾 Save to ArcGIS</button>
@@ -1030,7 +1030,7 @@ async function takeScreenshot() {
     ctx.font = 'bold 22px "Fredoka One", cursive';
     ctx.fillStyle = 'rgba(46,125,50,0.85)';
     ctx.textAlign = 'left';
-    ctx.fillText('🌳 Build a Park v.12', 16, 32);
+    ctx.fillText('🌳 Build a Park v.13', 16, 32);
 
     // Restore hidden UI elements
     hideEls.forEach(el => el.style.visibility = '');
@@ -1437,24 +1437,52 @@ async function doSignIn() {
         }
       }],
       baseMap: {
-        baseMapLayers: [{
-          id: 'basemap',
-          layerType: 'ArcGISTiledMapServiceLayer',
-          url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer',
-          title: 'World Topographic Map'
-        }],
+        baseMapLayers: [
+          {
+            id: 'World_Topo_Map_3805',
+            layerType: 'ArcGISTiledMapServiceLayer',
+            url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer',
+            title: 'World Topographic Map',
+            fullExtent: {
+              xmin: -20037508.342787,
+              ymin: -20037508.342787,
+              xmax: 20037508.342787,
+              ymax: 20037508.342787,
+              spatialReference: { wkid: 102100, latestWkid: 3857 }
+            },
+            opacity: 1,
+            visibility: true,
+            isReference: false
+          },
+          {
+            id: 'VectorTile_8504',
+            layerType: 'VectorTileLayer',
+            styleUrl: 'https://www.arcgis.com/sharing/rest/content/items/a52ab98763904006aa382d90e906fdd5/resources/styles/root.json',
+            title: 'World Boundaries and Places',
+            opacity: 1,
+            visibility: true,
+            isReference: true
+          }
+        ],
         title: 'Topographic'
       },
-      spatialReference: { wkid: 4326 },
+      spatialReference: { wkid: 102100, latestWkid: 3857 },
       initialState: {
         viewpoint: {
-          targetGeometry: {
-            spatialReference: { wkid: 4326 },
-            xmin: extent ? extent.xmin : -125,
-            ymin: extent ? extent.ymin : 24,
-            xmax: extent ? extent.xmax : -66,
-            ymax: extent ? extent.ymax : 49
-          }
+          targetGeometry: (() => {
+            // Convert WGS84 lat/lon to Web Mercator (EPSG:3857)
+            const toWM = (lon, lat) => ({
+              x: lon * 20037508.342787 / 180,
+              y: Math.log(Math.tan((90 + lat) * Math.PI / 360)) / (Math.PI / 180) * 20037508.342787 / 180
+            });
+            const sw = extent ? toWM(extent.xmin, extent.ymin) : toWM(-125, 24);
+            const ne = extent ? toWM(extent.xmax, extent.ymax) : toWM(-66, 49);
+            return {
+              spatialReference: { wkid: 102100, latestWkid: 3857 },
+              xmin: sw.x, ymin: sw.y,
+              xmax: ne.x, ymax: ne.y
+            };
+          })()
         }
       },
       authoringApp: 'ParkDesigner',
@@ -1469,7 +1497,7 @@ async function doSignIn() {
         title,
         type: 'Web Map',
         tags: 'park,playground,student design',
-        description: `A park design created by ${arcgisUsername} using Build a Park v.12`,
+        description: `A park design created by ${arcgisUsername} using Build a Park v.13`,
         snippet: `Park with ${placedItems.length} equipment items: ${[...new Set(placedItems.map(i=>i.label))].join(', ')}`,
         text: JSON.stringify(webmapJson),
         extent: extent ? `${extent.xmin},${extent.ymin},${extent.xmax},${extent.ymax}` : '-125,24,-66,49'
