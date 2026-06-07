@@ -636,7 +636,7 @@
     <button class="btn btn-save" onclick="saveToArcGIS()">💾 Save to ArcGIS</button>
     <button class="btn btn-clear" onclick="clearAll()">🗑️ Clear All</button>
     <div style="position:relative;display:flex;align-items:flex-start;">
-      <button class="btn btn-log" onclick="toggleLog()">🖥️ Error Log</button>
+      <button class="btn btn-log" onclick="toggleLog()">ℹ️ About</button>
       <span class="log-count" id="logCount">0</span>
     </div>
   </div>
@@ -782,17 +782,55 @@
   </div>
 </div>
 
-<!-- ERROR LOG WINDOW -->
+<!-- ABOUT / ERROR LOG WINDOW -->
 <div class="log-overlay" id="logOverlay">
   <div class="log-window">
     <div class="log-header">
-      <h3>🖥️ System Error Log</h3>
+      <h3>ℹ️ About Build a Park</h3>
       <div class="log-header-actions">
-        <button class="log-btn log-btn-copy" onclick="copyLog()">📋 Copy</button>
-        <button class="log-btn log-btn-clear" onclick="clearLog()">🗑️ Clear</button>
+        <button class="log-btn log-btn-copy" onclick="copyLog()">📋 Copy Log</button>
+        <button class="log-btn log-btn-clear" onclick="clearLog()">🗑️ Clear Log</button>
         <button class="log-btn log-btn-close" onclick="toggleLog()">✕ Close</button>
       </div>
     </div>
+
+    <!-- About text — top half -->
+    <div style="
+      padding: 16px 20px;
+      background: #1a2a32;
+      border-bottom: 2px solid #37474f;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.88rem;
+      line-height: 1.65;
+      color: #cfd8dc;
+      flex-shrink: 0;
+    ">
+      <p style="margin-bottom: 10px;">
+        This app allows children to create parks and playgrounds by dragging and dropping icons
+        to anywhere on the map. The map can be screen shot to a PNG image file or saved to
+        ArcGIS Online.
+      </p>
+      <p style="margin-bottom: 10px;">
+        When saving to ArcGIS Online, the map is accessible in the Map Viewer or
+        <span style="color:#80cbc4;font-weight:800;">National Geographic MapMaker</span>.
+      </p>
+      <p style="color:#80cbc4;font-weight:800;font-size:0.82rem;">
+        Created by Tom Baker, Esri K12 Team
+      </p>
+    </div>
+
+    <!-- Error log — bottom half -->
+    <div style="
+      padding: 8px 16px 4px;
+      background: #263238;
+      font-family: 'Nunito', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: #546e7a;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      flex-shrink: 0;
+    ">🖥️ System Log</div>
     <div class="log-body" id="logBody">
       <div class="log-empty" id="logEmpty">No log entries yet.</div>
     </div>
@@ -1554,15 +1592,66 @@ async function doSignIn() {
 
     if (!serviceUrl) throw new Error('Publish timed out — try again');
 
-    // ── STEP 4: Tag items with typeKeywords & share to org ──────────────
+    // ── STEP 4: Capture thumbnail, tag items, share to org ──────────────
     errEl.textContent = '⏳ Step 4/4 — Saving web map…';
 
-    // Add typeKeywords to the published feature service item
-    const updateSvcRes = await agoPost(
+    // Capture a 400×200 thumbnail of the current map view
+    let thumbnailDataUrl = null;
+    let thumbnailBlob = null;
+    try {
+      const mapContainer = document.getElementById('mapContainer');
+      const fullCanvas = await html2canvas(mapContainer, {
+        useCORS: true, allowTaint: true, logging: false,
+        width: mapContainer.clientWidth,
+        height: mapContainer.clientHeight
+      });
+      // Scale down to 400×200 thumbnail
+      const thumbCanvas = document.createElement('canvas');
+      thumbCanvas.width  = 400;
+      thumbCanvas.height = 200;
+      const tCtx = thumbCanvas.getContext('2d');
+      tCtx.drawImage(fullCanvas, 0, 0, fullCanvas.width, fullCanvas.height, 0, 0, 400, 200);
+      thumbnailDataUrl = thumbCanvas.toDataURL('image/png');
+      // Convert to Blob for FormData uploads
+      const arr = thumbnailDataUrl.split(',');
+      const bstr = atob(arr[1]);
+      const u8 = new Uint8Array(bstr.length);
+      for (let i = 0; i < bstr.length; i++) u8[i] = bstr.charCodeAt(i);
+      thumbnailBlob = new Blob([u8], { type: 'image/png' });
+      sysLog('success', 'Thumbnail captured', '400×200px');
+    } catch(e) {
+      sysLog('warn', 'Thumbnail capture failed', e.message);
+    }
+
+    // Helper: upload thumbnail to an existing item via updateItem
+    async function uploadThumbnail(itemId) {
+      if (!thumbnailBlob) return;
+      try {
+        const form = new FormData();
+        form.append('f', 'json');
+        form.append('token', tok);
+        form.append('thumbnail', thumbnailBlob, 'thumbnail.png');
+        const res = await fetch(
+          `${AGO}/content/users/${arcgisUsername}/items/${itemId}/update`,
+          { method: 'POST', body: form }
+        ).then(r => r.json());
+        sysLog('info', `Thumbnail uploaded to ${itemId}`, JSON.stringify(res).slice(0,80));
+      } catch(e) {
+        sysLog('warn', 'Thumbnail upload failed', e.message);
+      }
+    }
+
+    // Update feature service item — typeKeywords + thumbnail
+    const updateSvcForm = new FormData();
+    updateSvcForm.append('f', 'json');
+    updateSvcForm.append('token', tok);
+    updateSvcForm.append('typeKeywords', 'Mapmaker,Atlas,0cd1cdee853c413a84bfe4b9a6931f0d,Feature Service,Hosted Service');
+    if (thumbnailBlob) updateSvcForm.append('thumbnail', thumbnailBlob, 'thumbnail.png');
+    const updateSvcRes = await fetch(
       `${AGO}/content/users/${arcgisUsername}/items/${serviceItemId}/update`,
-      { typeKeywords: 'Mapmaker,Atlas,0cd1cdee853c413a84bfe4b9a6931f0d,Feature Service,Hosted Service' }
-    );
-    sysLog('info', 'Feature service typeKeywords update', JSON.stringify(updateSvcRes).slice(0,100));
+      { method: 'POST', body: updateSvcForm }
+    ).then(r => r.json());
+    sysLog('info', 'Feature service item updated', JSON.stringify(updateSvcRes).slice(0,100));
 
     await shareToOrg(csvItemId);
     await shareToOrg(serviceItemId);
@@ -1640,20 +1729,24 @@ async function doSignIn() {
       version: '2.26'
     };
 
-    // ── STEP 6: Save Web Map item ──────────────────────────────────────────
-    const wmRes = await agoPost(
+    // ── STEP 6: Save Web Map item (with thumbnail) ────────────────────────
+    const wmForm = new FormData();
+    wmForm.append('f', 'json');
+    wmForm.append('token', tok);
+    wmForm.append('title', title);
+    wmForm.append('type', 'Web Map');
+    wmForm.append('tags', 'park,playground,student design');
+    wmForm.append('typeKeywords', 'Mapmaker,Atlas,0cd1cdee853c413a84bfe4b9a6931f0d,Web Map');
+    wmForm.append('description', `A park design created by ${arcgisUsername} using Build a Park v1.1`);
+    wmForm.append('snippet', `Park with ${placedItems.length} equipment items: ${[...new Set(placedItems.map(i=>i.label))].join(', ')}`);
+    wmForm.append('text', JSON.stringify(webmapJson));
+    wmForm.append('extent', extent ? `${extent.xmin},${extent.ymin},${extent.xmax},${extent.ymax}` : '-125,24,-66,49');
+    if (thumbnailBlob) wmForm.append('thumbnail', thumbnailBlob, 'thumbnail.png');
+
+    const wmRes = await fetch(
       `${AGO}/content/users/${arcgisUsername}/addItem`,
-      {
-        title,
-        type: 'Web Map',
-        tags: 'park,playground,student design',
-        typeKeywords: 'Mapmaker,Atlas,0cd1cdee853c413a84bfe4b9a6931f0d,Web Map',
-        description: `A park design created by ${arcgisUsername} using Build a Park v1.1`,
-        snippet: `Park with ${placedItems.length} equipment items: ${[...new Set(placedItems.map(i=>i.label))].join(', ')}`,
-        text: JSON.stringify(webmapJson),
-        extent: extent ? `${extent.xmin},${extent.ymin},${extent.xmax},${extent.ymax}` : '-125,24,-66,49'
-      }
-    );
+      { method: 'POST', body: wmForm }
+    ).then(r => r.json());
 
     sysLog('info', 'Web map addItem response', JSON.stringify(wmRes).slice(0,200));
 
