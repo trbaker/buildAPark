@@ -1104,26 +1104,31 @@ async function doScreenshot() {
 
     // Draw user title centered at top if provided
     if (userTitle) {
-      const padding = 14;
-      const fontSize = 28;
+      const fontSize = 32;
+      const padding  = 18;
+      ctx.save();
       ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       const textW = ctx.measureText(userTitle).width;
       const boxW  = textW + padding * 2;
       const boxH  = fontSize + padding;
       const boxX  = (canvas.width - boxW) / 2;
-      const boxY  = 14;
+      const boxY  = 20;
 
-      // White background pill for readability
-      ctx.fillStyle = 'rgba(255,255,255,0.88)';
-      ctx.beginPath();
-      ctx.roundRect(boxX, boxY, boxW, boxH, 10);
-      ctx.fill();
+      // Solid white background rectangle
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.fillRect(boxX, boxY, boxW, boxH);
 
-      // Title text
+      // Dark border
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+      // Title text — solid black, large, centered
       ctx.fillStyle = '#000000';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.fillText(userTitle, canvas.width / 2, boxY + padding / 2);
+      ctx.fillText(userTitle, canvas.width / 2, boxY + boxH / 2);
+      ctx.restore();
     }
 
     // App watermark bottom-left
