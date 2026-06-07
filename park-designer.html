@@ -1406,7 +1406,7 @@ async function doSignIn() {
     // ── STEP 4: Share CSV item and feature layer to org ───────────────────
     errEl.textContent = '⏳ Step 4/4 — Saving web map…';
     await shareToOrg(csvItemId);
-    await shareToOrg(publishedSvc.serviceItemId);
+    await shareToOrg(serviceItemId);
 
     // ── STEP 5: Build web map JSON referencing the hosted feature service ──
     const bounds = view.getBounds();
