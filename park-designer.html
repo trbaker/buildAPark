@@ -1289,52 +1289,93 @@ async function doSignIn() {
     // ── STEP 3: Publish CSV as hosted Feature Layer ────────────────────────
     errEl.textContent = '⏳ Step 3/4 — Publishing feature layer…';
 
-    const publishParams = {
-      name: csvName,
+    // ── STEP 3a: Analyze CSV to get correct publish parameters ──────────────
+    errEl.textContent = '⏳ Step 3/4 — Analyzing CSV…';
+
+    const analyzeForm = new FormData();
+    analyzeForm.append('f', 'json');
+    analyzeForm.append('token', tok);
+    analyzeForm.append('itemid', csvItemId);
+    analyzeForm.append('filetype', 'csv');
+    analyzeForm.append('analyzeParameters', JSON.stringify({
+      enableGlobalGeocoding: false,
       locationType: 'coordinates',
       latitudeFieldName: 'latitude',
-      longitudeFieldName: 'longitude',
-      coordinateFieldType: 'LatLong'
-    };
+      longitudeFieldName: 'longitude'
+    }));
 
-    const publishRes = await agoPost(
-      `${AGO}/content/users/${arcgisUsername}/items/${csvItemId}/publish`,
+    const analyzeRes = await fetch(`${AGO}/content/analyze`, {
+      method: 'POST', body: analyzeForm
+    }).then(r => r.json());
+
+    sysLog('info', 'analyze response', JSON.stringify(analyzeRes).slice(0, 300));
+
+    // Merge our coordinate params into the analyzed publish parameters
+    const publishParameters = Object.assign(
+      analyzeRes.publishParameters || {},
       {
-        itemType: 'CSV',
-        fileType: 'csv',
-        publishParameters: JSON.stringify(publishParams)
+        name: csvName,
+        locationType: 'coordinates',
+        latitudeFieldName: 'latitude',
+        longitudeFieldName: 'longitude',
+        coordinateFieldType: 'LatLong',
+        hasStaticData: false,
+        targetSR: { wkid: 4326 }
       }
     );
 
-    sysLog('info', 'publish response', JSON.stringify(publishRes).slice(0, 300));
+    sysLog('info', 'publishParameters', JSON.stringify(publishParameters).slice(0, 300));
 
-    if (!publishRes.services?.[0]) {
-      sysLog('error', 'publish failed', JSON.stringify(publishRes));
-      throw new Error(publishRes.error?.message || 'Failed to publish feature layer');
+    // ── STEP 3b: Publish CSV as hosted Feature Layer ───────────────────────
+    errEl.textContent = '⏳ Step 3/4 — Publishing feature layer…';
+
+    const publishForm = new FormData();
+    publishForm.append('f', 'json');
+    publishForm.append('token', tok);
+    publishForm.append('fileType', 'csv');
+    publishForm.append('publishParameters', JSON.stringify(publishParameters));
+
+    const publishRes = await fetch(
+      `${AGO}/content/users/${arcgisUsername}/items/${csvItemId}/publish`,
+      { method: 'POST', body: publishForm }
+    ).then(r => r.json());
+
+    sysLog('info', 'publish response', JSON.stringify(publishRes).slice(0, 400));
+
+    let serviceItemId = null;
+    let serviceUrl = null;
+
+    if (publishRes.services?.[0]) {
+      serviceItemId = publishRes.services[0].serviceItemId;
+      sysLog('info', 'Publish job started', `serviceItemId: ${serviceItemId}, jobId: ${publishRes.services[0].jobId || 'n/a'}`);
+    } else if (publishRes.error) {
+      sysLog('error', 'publish failed', JSON.stringify(publishRes.error));
+      throw new Error(publishRes.error.message || 'Failed to publish feature layer');
+    } else {
+      sysLog('error', 'publish unexpected response', JSON.stringify(publishRes).slice(0, 400));
+      throw new Error('Unexpected publish response — check error log');
     }
 
-    const publishedSvc  = publishRes.services[0];
-    const serviceItemId = publishedSvc.serviceItemId || publishedSvc.jobId;
+    // ── STEP 3c: Poll until publish job completes ──────────────────────────
+    sysLog('info', 'Waiting for publish job…', serviceItemId);
+    for (let i = 0; i < 24; i++) {
+      await new Promise(r => setTimeout(r, 2500));
+      const statusRes = await fetch(
+        `${AGO}/content/users/${arcgisUsername}/items/${serviceItemId}/status?f=json&jobType=publish&token=${encodeURIComponent(tok)}`
+      ).then(r => r.json());
+      sysLog('info', `Publish status (${i+1})`, `${statusRes.status || '?'} ${statusRes.statusMessage || ''}`);
 
-    // Poll until publish job completes
-    sysLog('info', 'Waiting for publish job to complete…', publishedSvc.jobId || '');
-    let serviceUrl = null;
-    for (let i = 0; i < 20; i++) {
-      await new Promise(r => setTimeout(r, 2000));
-      const statusRes = await agoPost(
-        `${AGO}/content/users/${arcgisUsername}/items/${publishedSvc.serviceItemId}/status`,
-        {}
-      );
-      sysLog('info', `Publish status (attempt ${i+1})`, statusRes.status || JSON.stringify(statusRes).slice(0,100));
       if (statusRes.status === 'completed') {
-        // Get service URL from item details
-        const itemRes = await agoPost(`${AGO}/content/items/${publishedSvc.serviceItemId}`, {});
+        const itemRes = await fetch(
+          `${AGO}/content/items/${serviceItemId}?f=json&token=${encodeURIComponent(tok)}`
+        ).then(r => r.json());
         serviceUrl = itemRes.url;
         sysLog('success', 'Feature layer published', serviceUrl);
         break;
       }
       if (statusRes.status === 'failed') {
-        throw new Error('Publish job failed: ' + (statusRes.statusMessage || ''));
+        sysLog('error', 'Publish job failed', statusRes.statusMessage || '');
+        throw new Error('Publish job failed: ' + (statusRes.statusMessage || 'unknown'));
       }
     }
 
