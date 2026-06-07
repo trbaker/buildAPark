@@ -766,6 +766,12 @@
     <p>Sign in with your ArcGIS Online account and give your park map a name.</p>
     <input type="text" id="arcgisUser" placeholder="ArcGIS Username" autocomplete="username">
     <input type="password" id="arcgisPass" placeholder="Password" autocomplete="current-password">
+    <div style="display:flex;align-items:center;gap:8px;margin:6px 0 10px;text-align:left;">
+      <input type="checkbox" id="rememberMe" style="width:16px;height:16px;cursor:pointer;accent-color:#2e7d32;">
+      <label for="rememberMe" style="font-size:0.82rem;font-weight:700;color:#555;cursor:pointer;">
+        Remember my credentials for 1 hour
+      </label>
+    </div>
     <div style="text-align:left;font-size:0.8rem;font-weight:800;color:#555;margin-bottom:6px;margin-top:4px;">📝 Map Name</div>
     <input type="text" id="mapTitle" placeholder="Name your map..." autocomplete="off">
     <div id="signinError" style="color:#c62828;font-size:0.85rem;font-weight:700;min-height:20px;margin-bottom:8px;"></div>
@@ -1172,6 +1178,20 @@ function suggestedMapName() {
 function showSignIn() {
   document.getElementById('signinModal').classList.add('open');
   document.getElementById('signinError').textContent = '';
+
+  // Restore remembered credentials if still valid
+  try {
+    const saved = JSON.parse(sessionStorage.getItem('ago_creds') || 'null');
+    if (saved && saved.expiry > Date.now()) {
+      document.getElementById('arcgisUser').value = saved.user || '';
+      document.getElementById('arcgisPass').value = saved.pass || '';
+      document.getElementById('rememberMe').checked = true;
+      sysLog('info', 'Credentials restored from session', `Expires in ${Math.round((saved.expiry - Date.now()) / 60000)} min`);
+    } else {
+      sessionStorage.removeItem('ago_creds');
+    }
+  } catch(e) {}
+
   // Pre-fill suggested map name
   const titleInput = document.getElementById('mapTitle');
   if (!titleInput.value) titleInput.value = suggestedMapName();
@@ -1193,13 +1213,26 @@ async function saveToArcGIS() {
 }
 
 async function doSignIn() {
-  const user   = document.getElementById('arcgisUser').value.trim();
-  const pass   = document.getElementById('arcgisPass').value;
-  const title  = document.getElementById('mapTitle').value.trim() || suggestedMapName();
-  const errEl  = document.getElementById('signinError');
+  const user      = document.getElementById('arcgisUser').value.trim();
+  const pass      = document.getElementById('arcgisPass').value;
+  const title     = document.getElementById('mapTitle').value.trim() || suggestedMapName();
+  const remember  = document.getElementById('rememberMe').checked;
+  const errEl     = document.getElementById('signinError');
   errEl.textContent = '';
 
   if (!user || !pass) { errEl.textContent = 'Please enter your username and password.'; return; }
+
+  // Save or clear credentials
+  if (remember) {
+    try {
+      sessionStorage.setItem('ago_creds', JSON.stringify({
+        user, pass, expiry: Date.now() + 60 * 60 * 1000  // 1 hour
+      }));
+      sysLog('info', 'Credentials saved to session', 'Expires in 60 min');
+    } catch(e) {}
+  } else {
+    sessionStorage.removeItem('ago_creds');
+  }
 
   // Show working state
   errEl.style.color = '#1565c0';
@@ -1378,6 +1411,7 @@ async function doSignIn() {
     csvForm.append('type', 'CSV');
     csvForm.append('title', csvName);
     csvForm.append('tags', 'park,playground,student design');
+    csvForm.append('typeKeywords', 'Mapmaker,Atlas,0cd1cdee853c413a84bfe4b9a6931f0d');
     csvForm.append('description', `Equipment data for: ${title}`);
     csvForm.append('file', csvBlob, csvName + '.csv');
 
@@ -1520,8 +1554,16 @@ async function doSignIn() {
 
     if (!serviceUrl) throw new Error('Publish timed out — try again');
 
-    // ── STEP 4: Share CSV item and feature layer to org ───────────────────
+    // ── STEP 4: Tag items with typeKeywords & share to org ──────────────
     errEl.textContent = '⏳ Step 4/4 — Saving web map…';
+
+    // Add typeKeywords to the published feature service item
+    const updateSvcRes = await agoPost(
+      `${AGO}/content/users/${arcgisUsername}/items/${serviceItemId}/update`,
+      { typeKeywords: 'Mapmaker,Atlas,0cd1cdee853c413a84bfe4b9a6931f0d,Feature Service,Hosted Service' }
+    );
+    sysLog('info', 'Feature service typeKeywords update', JSON.stringify(updateSvcRes).slice(0,100));
+
     await shareToOrg(csvItemId);
     await shareToOrg(serviceItemId);
 
@@ -1605,6 +1647,7 @@ async function doSignIn() {
         title,
         type: 'Web Map',
         tags: 'park,playground,student design',
+        typeKeywords: 'Mapmaker,Atlas,0cd1cdee853c413a84bfe4b9a6931f0d,Web Map',
         description: `A park design created by ${arcgisUsername} using Build a Park v1.0`,
         snippet: `Park with ${placedItems.length} equipment items: ${[...new Set(placedItems.map(i=>i.label))].join(', ')}`,
         text: JSON.stringify(webmapJson),
@@ -1625,7 +1668,10 @@ async function doSignIn() {
     await shareToOrg(wmRes.id);
 
     closeSignIn();
-    document.getElementById('arcgisPass').value = '';
+    // Only clear password if not remembered
+    if (!document.getElementById('rememberMe').checked) {
+      document.getElementById('arcgisPass').value = '';
+    }
     document.getElementById('mapTitle').value = '';
 
     const mapUrl = `https://www.arcgis.com/home/item.html?id=${wmRes.id}`;
