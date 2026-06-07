@@ -1243,111 +1243,123 @@ async function doSignIn() {
       }]
     };
 
-    // ── STEP 2: Create hosted Feature Service WITH layer definition embedded ─
-    // Embedding the layer def in createService avoids needing a server-specific
-    // token for addToDefinition (which is a separate auth domain).
-    errEl.textContent = '⏳ Step 2/4 — Creating hosted feature service…';
+    // ── STEP 2: Build CSV of equipment and upload as portal item ────────────
+    // This avoids the server-specific token problem entirely — everything goes
+    // through the portal endpoint which accepts the portal token.
+    errEl.textContent = '⏳ Step 2/4 — Uploading equipment data…';
 
-    const svcName = ((title + '_data').replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 50)) + '_' + Date.now().toString().slice(-6);
+    // Build CSV content with lat/lon so AGO can publish as a point layer
+    const csvRows = ['equip_name,equip_type,icon_url,latitude,longitude'];
+    placedItems.forEach(item => {
+      const name    = item.label.replace(/,/g, ';');
+      const type    = item.type.replace(/,/g, ';');
+      const iconUrl = item.icon.replace(/,/g, ';');
+      csvRows.push(`${name},${type},${iconUrl},${item.mapLat},${item.mapLon}`);
+    });
+    const csvText = csvRows.join('\n');
+    sysLog('info', 'CSV built', `${placedItems.length} rows`);
 
-    const layerDef = {
-      name: 'Park Equipment',
-      type: 'Feature Layer',
-      geometryType: 'esriGeometryPoint',
-      spatialReference: { wkid: 4326 },
-      objectIdField: 'OBJECTID',
-      fields: [
-        { name: 'OBJECTID',   type: 'esriFieldTypeOID',    alias: 'OBJECTID' },
-        { name: 'equip_name', type: 'esriFieldTypeString', alias: 'Equipment Name', length: 100 },
-        { name: 'equip_type', type: 'esriFieldTypeString', alias: 'Equipment Type', length: 50 },
-        { name: 'icon_url',   type: 'esriFieldTypeString', alias: 'Icon URL',       length: 255 }
-      ],
-      drawingInfo,
-      capabilities: 'Query,Editing',
-      allowGeometryUpdates: true,
-      hasAttachments: false
-    };
+    // Upload CSV as a portal item
+    const csvName = ((title + '_data').replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 50)) + '_' + Date.now().toString().slice(-6);
+    const csvBlob = new Blob([csvText], { type: 'text/csv' });
+    const csvForm = new FormData();
+    csvForm.append('f', 'json');
+    csvForm.append('token', tok);
+    csvForm.append('type', 'CSV');
+    csvForm.append('title', csvName);
+    csvForm.append('tags', 'park,playground,student design');
+    csvForm.append('description', `Equipment data for: ${title}`);
+    csvForm.append('file', csvBlob, csvName + '.csv');
 
-    const serviceParams = {
-      name: svcName,
-      serviceDescription: `Park equipment layer for: ${title}`,
-      hasStaticData: false,
-      maxRecordCount: 1000,
-      supportedQueryFormats: 'JSON',
-      capabilities: 'Query,Editing',
-      spatialReference: { wkid: 4326 },
-      initialExtent: { xmin: -180, ymin: -90, xmax: 180, ymax: 90, spatialReference: { wkid: 4326 } },
-      layers: [layerDef]   // embed layer definition at creation time
-    };
+    const csvUpRes = await fetch(
+      `${AGO}/content/users/${arcgisUsername}/addItem`,
+      { method: 'POST', body: csvForm }
+    ).then(r => r.json());
 
-    const createSvcRes = await agoPost(
-      `${AGO}/content/users/${arcgisUsername}/createService`,
-      { createParameters: JSON.stringify(serviceParams), outputType: 'featureService' }
-    );
+    sysLog('info', 'CSV upload response', JSON.stringify(csvUpRes).slice(0, 200));
 
-    sysLog('info', 'createService response', JSON.stringify(createSvcRes).slice(0, 200));
-
-    if (!createSvcRes.serviceurl) {
-      sysLog('error', 'createService failed', JSON.stringify(createSvcRes));
-      throw new Error(createSvcRes.error?.message || 'Failed to create feature service');
+    if (!csvUpRes.success || !csvUpRes.id) {
+      sysLog('error', 'CSV upload failed', JSON.stringify(csvUpRes));
+      throw new Error(csvUpRes.error?.message || 'Failed to upload CSV');
     }
 
-    const serviceUrl    = createSvcRes.serviceurl;
-    const serviceItemId = createSvcRes.itemId;
-    sysLog('success', 'Feature service created', serviceUrl);
+    const csvItemId = csvUpRes.id;
+    sysLog('success', 'CSV uploaded', `Item ID: ${csvItemId}`);
 
-    // ── STEP 3: Add features via portal proxy (accepts portal token) ───────
-    // Use the AGO portal's /servers proxy to call applyEdits — this accepts
-    // the portal token without needing a separate server-specific token.
-    errEl.textContent = '⏳ Step 3/4 — Adding features…';
+    // ── STEP 3: Publish CSV as hosted Feature Layer ────────────────────────
+    errEl.textContent = '⏳ Step 3/4 — Publishing feature layer…';
 
-    const features = placedItems.map(item => ({
-      attributes: {
-        equip_name: item.label,
-        equip_type: item.type,
-        icon_url:   item.icon
-      },
-      geometry: { x: item.mapLon, y: item.mapLat, spatialReference: { wkid: 4326 } }
-    }));
+    const publishParams = {
+      name: csvName,
+      locationType: 'coordinates',
+      latitudeFieldName: 'latitude',
+      longitudeFieldName: 'longitude',
+      coordinateFieldType: 'LatLong'
+    };
 
-    // Try applyEdits via portal token first; fall back gracefully if it fails
-    const editsRes = await agoPost(
-      `${serviceUrl}/0/applyEdits`,
-      { adds: JSON.stringify(features), rollbackOnFailure: 'false' }
+    const publishRes = await agoPost(
+      `${AGO}/content/users/${arcgisUsername}/items/${csvItemId}/publish`,
+      {
+        itemType: 'CSV',
+        fileType: 'csv',
+        publishParameters: JSON.stringify(publishParams)
+      }
     );
 
-    sysLog('info', 'applyEdits response', JSON.stringify(editsRes).slice(0, 200));
+    sysLog('info', 'publish response', JSON.stringify(publishRes).slice(0, 300));
 
-    if (editsRes.error) {
-      // Token rejected by feature server — log warning but continue saving the web map
-      // The layer will exist but be empty; user can add data in ArcGIS Online
-      sysLog('warn', 'applyEdits token rejected — layer created but features not added', editsRes.error.message);
-    } else {
-      const addResults = editsRes.addResults || [];
-      const failed = addResults.filter(r => !r.success);
-      if (failed.length) {
-        sysLog('warn', `${failed.length} features failed to add`, JSON.stringify(failed[0]));
-      } else {
-        sysLog('success', `${addResults.length} features added to service`);
+    if (!publishRes.services?.[0]) {
+      sysLog('error', 'publish failed', JSON.stringify(publishRes));
+      throw new Error(publishRes.error?.message || 'Failed to publish feature layer');
+    }
+
+    const publishedSvc  = publishRes.services[0];
+    const serviceItemId = publishedSvc.serviceItemId || publishedSvc.jobId;
+
+    // Poll until publish job completes
+    sysLog('info', 'Waiting for publish job to complete…', publishedSvc.jobId || '');
+    let serviceUrl = null;
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      const statusRes = await agoPost(
+        `${AGO}/content/users/${arcgisUsername}/items/${publishedSvc.serviceItemId}/status`,
+        {}
+      );
+      sysLog('info', `Publish status (attempt ${i+1})`, statusRes.status || JSON.stringify(statusRes).slice(0,100));
+      if (statusRes.status === 'completed') {
+        // Get service URL from item details
+        const itemRes = await agoPost(`${AGO}/content/items/${publishedSvc.serviceItemId}`, {});
+        serviceUrl = itemRes.url;
+        sysLog('success', 'Feature layer published', serviceUrl);
+        break;
+      }
+      if (statusRes.status === 'failed') {
+        throw new Error('Publish job failed: ' + (statusRes.statusMessage || ''));
       }
     }
 
-    // ── STEP 5: Share feature service item to org ──────────────────────────
-    errEl.textContent = '⏳ Step 4/4 — Saving web map…';
-    await shareToOrg(serviceItemId);
+    if (!serviceUrl) throw new Error('Publish timed out — try again');
 
-    // ── STEP 6: Build web map JSON referencing the hosted feature service ──
+    // ── STEP 4: Share CSV item and feature layer to org ───────────────────
+    errEl.textContent = '⏳ Step 4/4 — Saving web map…';
+    await shareToOrg(csvItemId);
+    await shareToOrg(publishedSvc.serviceItemId);
+
+    // ── STEP 5: Build web map JSON referencing the hosted feature service ──
     const bounds = view.getBounds();
     const extent = bounds ? {
       xmin: bounds.getWest(), ymin: bounds.getSouth(),
       xmax: bounds.getEast(), ymax: bounds.getNorth()
     } : null;
 
+    // Service URL from publish points to the FeatureServer root; append /0 for layer
+    const layerUrl = serviceUrl.endsWith('/0') ? serviceUrl : `${serviceUrl}/0`;
+
     const webmapJson = {
       operationalLayers: [{
         id: 'parkEquipment',
         title: 'Park Equipment',
-        url: `${serviceUrl}/0`,
+        url: layerUrl,
         layerType: 'ArcGISFeatureLayer',
         opacity: 1,
         visibility: true,
@@ -1356,7 +1368,8 @@ async function doSignIn() {
           title: '{equip_name}',
           fieldInfos: [
             { fieldName: 'equip_name', label: 'Equipment Name', visible: true },
-            { fieldName: 'equip_type', label: 'Type',           visible: true }
+            { fieldName: 'equip_type', label: 'Type',           visible: true },
+            { fieldName: 'icon_url',   label: 'Icon',           visible: false }
           ]
         }
       }],
@@ -1386,7 +1399,7 @@ async function doSignIn() {
       version: '2.26'
     };
 
-    // ── STEP 7: Save Web Map item ──────────────────────────────────────────
+    // ── STEP 6: Save Web Map item ──────────────────────────────────────────
     const wmRes = await agoPost(
       `${AGO}/content/users/${arcgisUsername}/addItem`,
       {
@@ -1409,7 +1422,7 @@ async function doSignIn() {
 
     sysLog('success', 'Web map saved', `Item ID: ${wmRes.id}`);
 
-    // ── STEP 8: Share web map to org ───────────────────────────────────────
+    // ── STEP 7: Share web map to org ───────────────────────────────────────
     await shareToOrg(wmRes.id);
 
     closeSignIn();
