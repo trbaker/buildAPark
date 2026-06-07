@@ -1300,13 +1300,54 @@ async function doSignIn() {
       locationType: 'coordinates',
       latitudeFieldName: 'latitude',
       longitudeFieldName: 'longitude',
-      coordinateFieldType: 'LatLong',
+      coordinateFieldType: 'LatitudeAndLongitude',
       columnDelimiter: ',',
       qualifier: '"',
       hasStaticData: false,
       maxRecordCount: 2000,
       targetSR: { wkid: 102100, latestWkid: 3857 },
-      layerInfo: { capabilities: 'Query,Editing' }
+      editorTrackingInfo: {
+        enableEditorTracking: false,
+        enableOwnershipAccessControl: false,
+        allowOthersToQuery: true,
+        allowOthersToUpdate: true,
+        allowOthersToDelete: false,
+        allowAnonymousToUpdate: true,
+        allowAnonymousToDelete: true
+      },
+      layerInfo: {
+        name: 'Park Equipment',
+        type: 'Feature Layer',
+        geometryType: 'esriGeometryPoint',
+        displayField: 'equip_name',
+        description: 'Park equipment placed by student',
+        defaultVisibility: true,
+        allowGeometryUpdates: true,
+        hasAttachments: false,
+        hasM: false,
+        hasZ: false,
+        objectIdField: 'FID',
+        globalIdField: '',
+        typeIdField: '',
+        fields: [
+          { name: 'equip_name', type: 'esriFieldTypeString', alias: 'Equipment Name',
+            sqlType: 'sqlTypeNVarchar', length: 256, nullable: true, editable: true,
+            domain: null, defaultValue: null, locationType: 'unknown' },
+          { name: 'equip_type', type: 'esriFieldTypeString', alias: 'Equipment Type',
+            sqlType: 'sqlTypeNVarchar', length: 256, nullable: true, editable: true,
+            domain: null, defaultValue: null, locationType: 'unknown' },
+          { name: 'icon_url', type: 'esriFieldTypeString', alias: 'Icon URL',
+            sqlType: 'sqlTypeNVarchar', length: 512, nullable: true, editable: true,
+            domain: null, defaultValue: null, locationType: 'unknown' }
+        ],
+        indexes: [],
+        types: [],
+        templates: [],
+        supportedQueryFormats: 'JSON, geoJSON',
+        hasStaticData: false,
+        maxRecordCount: -1,
+        capabilities: 'Query,Editing'
+      }
     };
 
     sysLog('info', 'publishParameters', JSON.stringify(publishParameters).slice(0, 300));
