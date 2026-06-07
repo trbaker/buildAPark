@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌳 Build a Park v.10</title>
+<title>🌳 Build a Park v.11</title>
 
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -171,39 +171,32 @@
     background: #aad3df;
   }
 
-  /* Keep our overlay above Leaflet panes */
-  #overlay {
-    z-index: 500 !important;
-  }
-
-  /* ── PLACED ITEMS OVERLAY ── */
-  #overlay {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    pointer-events: none;
-    z-index: 10;
-  }
-
-  .placed-item {
-    position: absolute;
-    pointer-events: all;
-    cursor: move;
+  /* ── LEAFLET MARKER ICONS ── */
+  .park-marker {
     display: flex;
     flex-direction: column;
     align-items: center;
-    transform: translate(-50%, -50%);
+    cursor: pointer;
     user-select: none;
-    transition: filter 0.15s;
   }
-  .placed-item:hover { filter: drop-shadow(0 4px 10px rgba(0,0,0,0.4)); }
-  .placed-item.selected { filter: drop-shadow(0 0 12px #ffb300) drop-shadow(0 0 4px #ff8f00); }
+  .park-marker:hover .placed-icon,
+  .park-marker:hover .placed-img { filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5)); }
+  .park-marker.selected .placed-icon,
+  .park-marker.selected .placed-img { filter: drop-shadow(0 0 10px #ffb300) drop-shadow(0 0 4px #ff8f00); }
 
   .placed-icon {
     font-size: 2.5rem;
     line-height: 1;
     display: block;
     filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+  }
+  .placed-img {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+    pointer-events: none;
   }
 
   .placed-label-wrap {
@@ -254,7 +247,7 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.3);
     z-index: 20;
   }
-  .placed-item.selected .delete-btn { display: flex; }
+  .park-marker.selected .delete-btn { display: flex; }
 
   /* ── DROP ZONE HIGHLIGHT ── */
   .map-container.drag-over::after {
@@ -586,7 +579,7 @@
 
 <header>
   <span class="header-emoji">🌳</span>
-  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v.10</span></h1>
+  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v.11</span></h1>
   <div class="header-actions">
     <button class="btn btn-screenshot" onclick="takeScreenshot()">📸 Screenshot</button>
     <button class="btn btn-save" onclick="saveToArcGIS()">💾 Save to ArcGIS</button>
@@ -712,7 +705,6 @@
       <div class="search-results" id="searchResults"></div>
     </div>
 
-    <div id="overlay"></div>
   </div>
 </div>
 
@@ -761,6 +753,7 @@
 //  STATE
 // ─────────────────────────────────────────────
 let placedItems = [];
+let markerMap = {};       // id -> Leaflet marker
 let dragData = null;
 let selectedItem = null;
 let arcgisToken = null;
@@ -830,13 +823,10 @@ function setupDrop() {
     mapContainer.classList.remove('drag-over');
     if (!dragData) return;
 
-    // Get position relative to overlay
-    const overlay = document.getElementById('overlay');
-    const rect = overlay.getBoundingClientRect();
+    // Convert drop pixel position to geographic coordinates
+    const rect = document.getElementById('viewDiv').getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-
-    // Convert screen coords to map point for storage
     const latlng = view.containerPointToLatLng(L.point(x, y));
 
     const id = Date.now() + Math.random();
@@ -845,9 +835,8 @@ function setupDrop() {
       type: dragData.type,
       icon: dragData.icon,
       label: dragData.label,
-      x, y,
-      mapLon: latlng ? latlng.lng : 0,
-      mapLat: latlng ? latlng.lat : 0
+      mapLon: latlng.lng,
+      mapLat: latlng.lat
     };
 
     placedItems.push(item);
@@ -857,114 +846,144 @@ function setupDrop() {
 }
 
 // ─────────────────────────────────────────────
-//  RENDER A PLACED ITEM
+//  RENDER A PLACED ITEM (Leaflet marker)
 // ─────────────────────────────────────────────
-function renderItem(item) {
-  const overlay = document.getElementById('overlay');
-
-  const el = document.createElement('div');
-  el.className = 'placed-item';
-  el.id = 'item-' + item.id;
-  el.style.left = item.x + 'px';
-  el.style.top  = item.y + 'px';
-
+function buildMarkerHtml(item) {
   const iconHtml = item.icon.startsWith('http')
     ? `<img class="placed-img" src="${item.icon}" alt="${item.label}" crossorigin="anonymous">`
     : `<span class="placed-icon">${item.icon}</span>`;
-
-  el.innerHTML = `
+  return `<div class="park-marker" id="item-${item.id}">
     ${iconHtml}
     <div class="placed-label-wrap">
       <button class="delete-btn" title="Remove">✕</button>
       <div class="placed-label" contenteditable="true" spellcheck="false"
            data-id="${item.id}">${item.label}</div>
     </div>
-  `;
+  </div>`;
+}
 
-  // Label edit → update data
-  const labelEl = el.querySelector('.placed-label');
-  labelEl.addEventListener('input', () => {
-    const found = placedItems.find(i => i.id === item.id);
-    if (found) found.label = labelEl.textContent.trim().slice(0, 40);
-  });
-  labelEl.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); labelEl.blur(); }
+function renderItem(item) {
+  const icon = L.divIcon({
+    className: '',
+    html: buildMarkerHtml(item),
+    iconAnchor: [30, 30],   // center of icon
+    iconSize: [60, 70]
   });
 
-  // Click → select
+  const marker = L.marker([item.mapLat, item.mapLon], {
+    icon,
+    draggable: true,
+    autoPan: true
+  }).addTo(view);
+
+  // Update geographic position when marker is dragged on the map
+  marker.on('dragstart', () => {
+    view.dragging.disable();
+    deselectAll();
+  });
+  marker.on('drag', () => {
+    const ll = marker.getLatLng();
+    item.mapLat = ll.lat;
+    item.mapLon = ll.lng;
+  });
+  marker.on('dragend', () => {
+    view.dragging.enable();
+    const ll = marker.getLatLng();
+    item.mapLat = ll.lat;
+    item.mapLon = ll.lng;
+  });
+
+  // Wire up DOM events after marker is added to map
+  marker.on('add', () => {
+    const el = document.getElementById('item-' + item.id);
+    if (!el) return;
+
+    // Click to select/deselect
+    el.addEventListener('mousedown', e => {
+      if (e.target.classList.contains('delete-btn')) return;
+      if (e.target.classList.contains('placed-label')) return;
+      e.stopPropagation();
+      selectItem(item.id);
+    });
+
+    // Label editing
+    const labelEl = el.querySelector('.placed-label');
+    labelEl.addEventListener('input', () => {
+      const found = placedItems.find(i => i.id === item.id);
+      if (found) {
+        found.label = labelEl.textContent.trim().slice(0, 40);
+        // Rebuild icon with updated label
+        marker.setIcon(L.divIcon({
+          className: '',
+          html: buildMarkerHtml(found),
+          iconAnchor: [30, 30],
+          iconSize: [60, 70]
+        }));
+        // Re-wire after icon rebuild
+        setTimeout(() => wireMarkerDom(item, marker), 10);
+      }
+    });
+    labelEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); labelEl.blur(); }
+    });
+
+    // Delete button
+    const delBtn = el.querySelector('.delete-btn');
+    delBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      removeItem(item.id);
+    });
+  });
+
+  markerMap[item.id] = marker;
+}
+
+function wireMarkerDom(item, marker) {
+  const el = document.getElementById('item-' + item.id);
+  if (!el) return;
   el.addEventListener('mousedown', e => {
     if (e.target.classList.contains('delete-btn')) return;
     if (e.target.classList.contains('placed-label')) return;
+    e.stopPropagation();
     selectItem(item.id);
-    startDragItem(e, item, el);
   });
-
-  // Delete btn
-  el.querySelector('.delete-btn').addEventListener('click', e => {
+  const delBtn = el.querySelector('.delete-btn');
+  if (delBtn) delBtn.addEventListener('click', e => {
     e.stopPropagation();
     removeItem(item.id);
   });
-
-  overlay.appendChild(el);
 }
 
 // ─────────────────────────────────────────────
 //  ITEM SELECTION
 // ─────────────────────────────────────────────
 function selectItem(id) {
-  document.querySelectorAll('.placed-item').forEach(el => el.classList.remove('selected'));
+  deselectAll();
   const el = document.getElementById('item-' + id);
   if (el) el.classList.add('selected');
   selectedItem = id;
 }
 
+function deselectAll() {
+  document.querySelectorAll('.park-marker').forEach(el => el.classList.remove('selected'));
+  selectedItem = null;
+}
+
 document.addEventListener('mousedown', e => {
-  if (!e.target.closest('.placed-item')) {
-    document.querySelectorAll('.placed-item').forEach(el => el.classList.remove('selected'));
-    selectedItem = null;
-  }
+  if (!e.target.closest('.park-marker')) deselectAll();
 });
 
-// ─────────────────────────────────────────────
-//  DRAG PLACED ITEM (reposition)
-// ─────────────────────────────────────────────
-function startDragItem(e, item, el) {
-  e.preventDefault();
-  const overlay = document.getElementById('overlay');
-  const rect = overlay.getBoundingClientRect();
-
-  const startX = e.clientX;
-  const startY = e.clientY;
-  const origX = item.x;
-  const origY = item.y;
-
-  function onMove(ev) {
-    const dx = ev.clientX - startX;
-    const dy = ev.clientY - startY;
-    item.x = origX + dx;
-    item.y = origY + dy;
-    el.style.left = item.x + 'px';
-    el.style.top  = item.y + 'px';
-
-    // Update map coordinate
-    const mp = view.containerPointToLatLng(L.point(item.x, item.y));
-    if (mp) { item.mapLon = mp.lng; item.mapLat = mp.lat; }
-  }
-  function onUp() {
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
-  }
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
-}
+// Drag-to-reposition handled natively by Leaflet draggable markers
 
 // ─────────────────────────────────────────────
 //  REMOVE ITEM
 // ─────────────────────────────────────────────
 function removeItem(id) {
   placedItems = placedItems.filter(i => i.id !== id);
-  const el = document.getElementById('item-' + id);
-  if (el) { el.style.transform = 'scale(0)'; setTimeout(() => el.remove(), 200); }
+  if (markerMap[id]) {
+    view.removeLayer(markerMap[id]);
+    delete markerMap[id];
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -973,8 +992,9 @@ function removeItem(id) {
 function clearAll() {
   if (placedItems.length === 0) return;
   if (!confirm('Remove all equipment from your park? 🗑️')) return;
+  Object.values(markerMap).forEach(m => view.removeLayer(m));
+  markerMap = {};
   placedItems = [];
-  document.getElementById('overlay').innerHTML = '';
 }
 
 // ─────────────────────────────────────────────
@@ -1010,7 +1030,7 @@ async function takeScreenshot() {
     ctx.font = 'bold 22px "Fredoka One", cursive';
     ctx.fillStyle = 'rgba(46,125,50,0.85)';
     ctx.textAlign = 'left';
-    ctx.fillText('🌳 Build a Park v.10', 16, 32);
+    ctx.fillText('🌳 Build a Park v.11', 16, 32);
 
     // Restore hidden UI elements
     hideEls.forEach(el => el.style.visibility = '');
@@ -1350,7 +1370,7 @@ async function doSignIn() {
         title,
         type: 'Web Map',
         tags: 'park,playground,student design',
-        description: `A park design created by ${arcgisUsername} using Build a Park v.10`,
+        description: `A park design created by ${arcgisUsername} using Build a Park v.11`,
         snippet: `Park with ${placedItems.length} equipment items: ${[...new Set(placedItems.map(i=>i.label))].join(', ')}`,
         text: JSON.stringify(webmapJson),
         extent: extent ? `${extent.xmin},${extent.ymin},${extent.xmax},${extent.ymax}` : '-125,24,-66,49'
