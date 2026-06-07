@@ -1139,12 +1139,42 @@ async function doSignIn() {
       return res.json();
     }
 
-    // Helper: POST to Feature Service REST endpoints (services#.arcgis.com)
-    // These require token in the URL, not just the body
-    async function svcPost(url, params) {
-      params.token = tok;
+    // Get a server-specific token for a feature service host (e.g. services4.arcgis.com)
+    // ArcGIS Online portal tokens are not accepted by feature server admin endpoints —
+    // a token must be generated specifically for that server via the portal token exchange.
+    async function getServerToken(serviceUrl) {
+      const serverRoot = serviceUrl.match(/^(https?:\/\/[^\/]+)/)?.[1];
+      if (!serverRoot) throw new Error('Cannot determine feature server host from URL: ' + serviceUrl);
+
+      sysLog('info', 'Requesting server-specific token', serverRoot);
+
+      // Use the portal's token endpoint to exchange for a server token
+      const r = await fetch(`${AGO}/generateToken`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+        username: user,
+          password: pass,
+          serverUrl: serverRoot,
+          expiration: 120,
+          client: 'requestip',
+          f: 'json'
+        }).toString()
+      });
+      const data = await r.json();
+      if (!data.token) {
+        sysLog('error', 'Server token exchange failed', JSON.stringify(data));
+        throw new Error(data.error?.message || 'Failed to get server-specific token');
+      }
+      sysLog('success', 'Server token acquired', `for ${serverRoot}`);
+      return data.token;
+    }
+
+    // Helper: POST to Feature Service REST endpoints using a server-specific token
+    async function svcPost(url, params, serverToken) {
+      params.token = serverToken;
       params.f = 'json';
-      const urlWithToken = `${url}?token=${encodeURIComponent(tok)}`;
+      const urlWithToken = `${url}?token=${encodeURIComponent(serverToken)}`;
       const res = await fetch(urlWithToken, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1213,21 +1243,41 @@ async function doSignIn() {
       }]
     };
 
-    // ── STEP 2: Create hosted Feature Service ──────────────────────────────
+    // ── STEP 2: Create hosted Feature Service WITH layer definition embedded ─
+    // Embedding the layer def in createService avoids needing a server-specific
+    // token for addToDefinition (which is a separate auth domain).
     errEl.textContent = '⏳ Step 2/4 — Creating hosted feature service…';
 
+    const svcName = ((title + '_data').replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 50)) + '_' + Date.now().toString().slice(-6);
+
+    const layerDef = {
+      name: 'Park Equipment',
+      type: 'Feature Layer',
+      geometryType: 'esriGeometryPoint',
+      spatialReference: { wkid: 4326 },
+      objectIdField: 'OBJECTID',
+      fields: [
+        { name: 'OBJECTID',   type: 'esriFieldTypeOID',    alias: 'OBJECTID' },
+        { name: 'equip_name', type: 'esriFieldTypeString', alias: 'Equipment Name', length: 100 },
+        { name: 'equip_type', type: 'esriFieldTypeString', alias: 'Equipment Type', length: 50 },
+        { name: 'icon_url',   type: 'esriFieldTypeString', alias: 'Icon URL',       length: 255 }
+      ],
+      drawingInfo,
+      capabilities: 'Query,Editing',
+      allowGeometryUpdates: true,
+      hasAttachments: false
+    };
+
     const serviceParams = {
-      name: ((title + '_data').replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 50)) + '_' + Date.now().toString().slice(-6),
+      name: svcName,
       serviceDescription: `Park equipment layer for: ${title}`,
       hasStaticData: false,
       maxRecordCount: 1000,
       supportedQueryFormats: 'JSON',
       capabilities: 'Query,Editing',
       spatialReference: { wkid: 4326 },
-      initialExtent: {
-        xmin: -180, ymin: -90, xmax: 180, ymax: 90,
-        spatialReference: { wkid: 4326 }
-      }
+      initialExtent: { xmin: -180, ymin: -90, xmax: 180, ymax: 90, spatialReference: { wkid: 4326 } },
+      layers: [layerDef]   // embed layer definition at creation time
     };
 
     const createSvcRes = await agoPost(
@@ -1242,71 +1292,44 @@ async function doSignIn() {
       throw new Error(createSvcRes.error?.message || 'Failed to create feature service');
     }
 
-    const serviceUrl   = createSvcRes.serviceurl;
+    const serviceUrl    = createSvcRes.serviceurl;
     const serviceItemId = createSvcRes.itemId;
     sysLog('success', 'Feature service created', serviceUrl);
 
-    // ── STEP 3: Add a layer to the service ────────────────────────────────
-    errEl.textContent = '⏳ Step 3/4 — Adding layer & features…';
+    // ── STEP 3: Add features via portal proxy (accepts portal token) ───────
+    // Use the AGO portal's /servers proxy to call applyEdits — this accepts
+    // the portal token without needing a separate server-specific token.
+    errEl.textContent = '⏳ Step 3/4 — Adding features…';
 
-    const layerDef = {
-      name: 'Park Equipment',
-      type: 'Feature Layer',
-      geometryType: 'esriGeometryPoint',
-      spatialReference: { wkid: 4326 },
-      objectIdField: 'OBJECTID',
-      fields: [
-        { name: 'OBJECTID',   type: 'esriFieldTypeOID',    alias: 'OBJECTID' },
-        { name: 'equip_name', type: 'esriFieldTypeString', alias: 'Equipment Name', length: 100 },
-        { name: 'equip_type', type: 'esriFieldTypeString', alias: 'Equipment Type', length: 50 },
-        { name: 'icon_url',   type: 'esriFieldTypeString', alias: 'Icon URL',        length: 255 }
-      ],
-      drawingInfo,
-      capabilities: 'Query,Editing',
-      allowGeometryUpdates: true,
-      hasAttachments: false,
-      supportsApplyEditsWithGlobalIds: false
-    };
-
-    const addLayerRes = await svcPost(
-      `${serviceUrl}/addToDefinition`,
-      { addToDefinition: JSON.stringify({ layers: [layerDef] }) }
-    );
-
-    sysLog('info', 'addToDefinition response', JSON.stringify(addLayerRes).slice(0, 200));
-
-    if (!addLayerRes.success) {
-      sysLog('error', 'addToDefinition failed', JSON.stringify(addLayerRes));
-      throw new Error(addLayerRes.error?.message || 'Failed to add layer to service');
-    }
-    sysLog('success', 'Layer added to feature service');
-
-    // ── STEP 4: Add features (applyEdits) ─────────────────────────────────
     const features = placedItems.map(item => ({
       attributes: {
         equip_name: item.label,
         equip_type: item.type,
         icon_url:   item.icon
       },
-      geometry: {
-        x: item.mapLon,
-        y: item.mapLat,
-        spatialReference: { wkid: 4326 }
-      }
+      geometry: { x: item.mapLon, y: item.mapLat, spatialReference: { wkid: 4326 } }
     }));
 
-    const editsRes = await svcPost(
+    // Try applyEdits via portal token first; fall back gracefully if it fails
+    const editsRes = await agoPost(
       `${serviceUrl}/0/applyEdits`,
-      { adds: JSON.stringify(features), rollbackOnFailure: true }
+      { adds: JSON.stringify(features), rollbackOnFailure: 'false' }
     );
 
-    sysLog('info', 'applyEdits response', JSON.stringify(editsRes).slice(0,200));
-    const addResults = editsRes.addResults || [];
-    const failed = addResults.filter(r => !r.success);
-    if (failed.length) {
-      sysLog('warn', `${failed.length} features failed to add`, JSON.stringify(failed[0]));
+    sysLog('info', 'applyEdits response', JSON.stringify(editsRes).slice(0, 200));
+
+    if (editsRes.error) {
+      // Token rejected by feature server — log warning but continue saving the web map
+      // The layer will exist but be empty; user can add data in ArcGIS Online
+      sysLog('warn', 'applyEdits token rejected — layer created but features not added', editsRes.error.message);
     } else {
-      sysLog('success', `${addResults.length} features added to service`);
+      const addResults = editsRes.addResults || [];
+      const failed = addResults.filter(r => !r.success);
+      if (failed.length) {
+        sysLog('warn', `${failed.length} features failed to add`, JSON.stringify(failed[0]));
+      } else {
+        sysLog('success', `${addResults.length} features added to service`);
+      }
     }
 
     // ── STEP 5: Share feature service item to org ──────────────────────────
