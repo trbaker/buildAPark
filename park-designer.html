@@ -861,6 +861,29 @@
 <div class="save-status" id="saveStatus">✅ Saved!</div>
 
 <script>
+// ── DOMAIN RESTRICTION ───────────────────────────────────────────────────
+(function() {
+  const allowed = 'trbaker.github.io';
+  if (window.location.hostname !== allowed) {
+    document.open();
+    document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+      <title>Not Authorized</title>
+      <style>
+        body { font-family: Arial, sans-serif; display: flex; align-items: center;
+               justify-content: center; height: 100vh; margin: 0;
+               background: #f1f8e9; flex-direction: column; gap: 16px; }
+        h1 { color: #2e7d32; font-size: 1.6rem; }
+        p  { color: #555; font-size: 1rem; }
+        a  { color: #1565c0; }
+      </style></head><body>
+      <h1>🌳 Build a Park</h1>
+      <p>This app may only be used at
+         <a href="https://trbaker.github.io/buildAPark/">trbaker.github.io</a>.</p>
+    </body></html>`);
+    document.close();
+  }
+})();
+</script>
 // ─────────────────────────────────────────────
 //  STATE
 // ─────────────────────────────────────────────
