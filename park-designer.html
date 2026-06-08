@@ -861,11 +861,12 @@
 <div class="save-status" id="saveStatus">✅ Saved!</div>
 
 <script>
-// ── DOMAIN RESTRICTION ───────────────────────────────────────────────────
+// Domain restriction active only when deployed to production
+// Uncomment the block below before final deployment to trbaker.github.io
+/*
 (function() {
   const allowed = 'trbaker.github.io';
   const host = window.location.hostname;
-  // Allow: the production host, localhost, and direct file:// access (empty hostname)
   const isAllowed = host === allowed || host === 'localhost' || host === '127.0.0.1' || host === '';
   if (!isAllowed) {
     document.open();
@@ -886,7 +887,7 @@
     document.close();
   }
 })();
-</script>
+*/
 // ─────────────────────────────────────────────
 //  STATE
 // ─────────────────────────────────────────────
