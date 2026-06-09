@@ -7,7 +7,6 @@ Imagine your students designing their dream playground — not on paper, not in 
 <br><br>
 Build a Park is a free, browser-based web app designed especially  for upper elementary students. It combines the intuitive fun of drag-and-drop design with the power of ArcGIS Online mapping technology. Students search for their school or a nearby park, zoom in, and then drag playground equipment icons directly onto the map — slides, swings, monkey bars, seesaws, gaga ball pits, koi ponds, and more. Each piece of equipment gets a short, editable label so students can personalize their designs. When they're done, they can take a screenshot of their finished park or save their design directly to ArcGIS Online as a professional web map.
 <br><br>
-<br>
 <b>Lesson plans (free, open source)</b>
 <li> <a href="lesson plans/BuildAPark_LessonPlan_Grade3.docx">3rd grade with screenshots</a>
 <li> <a href="lesson plans/BuildAPark_LessonPlan_Grade5.docx">5th grade with screenshots</a>
@@ -15,6 +14,5 @@ Build a Park is a free, browser-based web app designed especially  for upper ele
 <br><br>
 Report problems to Tom at trbaker@gmail.com or tbaker@esri.com 
 
-
 <br><br>
- <iframe width="560" height="315" src="https://www.youtube.com/embed/Os5nA_bpxns?si=Sg4W9rJgKJxuZWO6" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+ <iframe width="560" height="315" align="center" src="https://www.youtube.com/embed/Os5nA_bpxns?si=Sg4W9rJgKJxuZWO6" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
