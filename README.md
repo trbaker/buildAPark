@@ -8,7 +8,7 @@ Build a Park is a free, browser-based web app designed especially  for upper ele
 <li><a href="park-designer.html">Build A Park app</a> (Teachers and students)
 <li><a href="icons">Reference icons</a> (Developers)
 
-Report erros to Tom at trbaker@gmail.com or tbaker@esri.com 
+Report problems to Tom at trbaker@gmail.com or tbaker@esri.com 
 
 
 <br><br>
