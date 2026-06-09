@@ -1,6 +1,7 @@
 App URL: <a href="park-designer.html"><b>Build A Park app</b></a><br>
 Home: <a href="https://trbaker.github.io/buildAPark/">https://trbaker.github.io/buildAPark/</a><br>
 A part of <a href="https://tbaker.com/atlas" target="new">the MapMaker's Toolbox</a>
+Created by Claude and Tom Baker, Esri Education Team. Send questions/issues to tbaekr@esri.com
 <br><br>
 
 Imagine your students designing their dream playground — not on paper, not in their heads, but on a real interactive map of their actual school grounds. That's exactly what Build a Park makes possible.
@@ -12,7 +13,5 @@ Build a Park is a free, browser-based web app designed especially  for upper ele
 <li> <a href="lesson plans/BuildAPark_LessonPlan_Grade5.docx">5th grade with screenshots</a>
 <LI> <a href="lesson plans/BuildAPark_LessonPlan_Grade7.docx">7th grade with ArcGIS Online map</a>
 <br><br>
-Report problems to Tom at trbaker@gmail.com or tbaker@esri.com 
-
 <br><br>
  <iframe width="560" height="315" align="center" src="https://www.youtube.com/embed/Os5nA_bpxns?si=Sg4W9rJgKJxuZWO6" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
