@@ -1,6 +1,6 @@
 App URL: <a href="park-designer.html"><b>Build A Park app</b></a><br>
 Home: <a href="https://trbaker.github.io/buildAPark/">https://trbaker.github.io/buildAPark/</a><br>
-A part of <a href="https://tbaker.com/atlas" target="new">the MapMaker's Toolbox</a>
+A part of <a href="https://tbaker.com/atlas" target="new">the MapMaker's Toolbox</a><br>
 Created by Claude and Tom Baker, Esri Education Team. Send questions/issues to tbaekr@esri.com
 <br><br>
 
