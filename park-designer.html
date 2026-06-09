@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🌳 Build a Park v1.3</title>
+<title>🌳 Build a Park v1.4</title>
 
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -630,7 +630,7 @@
 
 <header>
   <span class="header-emoji">🌳</span>
-  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v1.3</span></h1>
+  <h1>Build a Park <span style="font-size:0.75rem;font-weight:400;opacity:0.75;letter-spacing:1px;vertical-align:middle;">v1.4</span></h1>
   <div class="header-actions">
     <button class="btn btn-screenshot" onclick="takeScreenshot()">📸 Screenshot</button>
     <button class="btn btn-save" onclick="saveToArcGIS()">💾 Save to ArcGIS</button>
@@ -682,8 +682,20 @@
       <img class="eq-img" src="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Balance%20beam.png" alt="Balance Beam" crossorigin="anonymous">
       <span class="eq-name">Balance Beam</span>
     </div>
+    <div class="equipment-item" draggable="true" data-type="funnel-ball" data-icon="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Funnel%20ball.png" data-label="Funnel Ball">
+      <img class="eq-img" src="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Funnel%20ball.png" alt="Funnel Ball" crossorigin="anonymous">
+      <span class="eq-name">Funnel Ball</span>
+    </div>
+    <div class="equipment-item" draggable="true" data-type="gaga-ball" data-icon="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Gaga%20ball.png" data-label="Gaga Ball">
+      <img class="eq-img" src="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Gaga%20ball.png" alt="Gaga Ball" crossorigin="anonymous">
+      <span class="eq-name">Gaga Ball</span>
+    </div>
+    <div class="equipment-item" draggable="true" data-type="splash-pad" data-icon="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Splash%20Pad.png" data-label="Splash Pad">
+      <img class="eq-img" src="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Splash%20Pad.png" alt="Splash Pad" crossorigin="anonymous">
+      <span class="eq-name">Splash Pad</span>
+    </div>
 
-    <div class="sidebar-section-label">🌿 Outdoor & Sports</div>
+    <div class="sidebar-section-label">⚽ Sports & Facilities</div>
 
     <div class="equipment-item" draggable="true" data-type="basketball" data-icon="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Basketball%20Hoop.png" data-label="Basketball Hoop">
       <img class="eq-img" src="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Basketball%20Hoop.png" alt="Basketball Hoop" crossorigin="anonymous">
@@ -697,13 +709,9 @@
       <img class="eq-img" src="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Picnic%20Table.png" alt="Picnic Table" crossorigin="anonymous">
       <span class="eq-name">Picnic Table</span>
     </div>
-    <div class="equipment-item" draggable="true" data-type="fountain" data-icon="⛲" data-label="Fountain">
-      <span class="eq-icon">⛲</span>
+    <div class="equipment-item" draggable="true" data-type="fountain" data-icon="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Fountain.png" data-label="Fountain">
+      <img class="eq-img" src="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Fountain.png" alt="Fountain" crossorigin="anonymous">
       <span class="eq-name">Fountain</span>
-    </div>
-    <div class="equipment-item" draggable="true" data-type="tree" data-icon="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Tree.png" data-label="Tree">
-      <img class="eq-img" src="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Tree.png" alt="Tree" crossorigin="anonymous">
-      <span class="eq-name">Tree</span>
     </div>
     <div class="equipment-item" draggable="true" data-type="restroom" data-icon="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Restrooms.png" data-label="Restrooms">
       <img class="eq-img" src="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Restrooms.png" alt="Restrooms" crossorigin="anonymous">
@@ -713,24 +721,20 @@
       <img class="eq-img" src="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Bench.png" alt="Bench" crossorigin="anonymous">
       <span class="eq-name">Bench</span>
     </div>
-    <div class="equipment-item" draggable="true" data-type="trash" data-icon="🗑️" data-label="Trash Can">
-      <span class="eq-icon">🗑️</span>
+    <div class="equipment-item" draggable="true" data-type="trash" data-icon="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Trash%20Can.png" data-label="Trash Can">
+      <img class="eq-img" src="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Trash%20Can.png" alt="Trash Can" crossorigin="anonymous">
       <span class="eq-name">Trash Can</span>
     </div>
 
-    <div class="sidebar-section-label">🆕 More Equipment</div>
+    <div class="sidebar-section-label">🌿 Nature</div>
+    <div class="equipment-item" draggable="true" data-type="tree" data-icon="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Tree.png" data-label="Tree">
+      <img class="eq-img" src="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Tree.png" alt="Tree" crossorigin="anonymous">
+      <span class="eq-name">Tree</span>
+    </div>
 
     <div class="equipment-item" draggable="true" data-type="bush" data-icon="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Bush.png" data-label="Bush">
       <img class="eq-img" src="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Bush.png" alt="Bush" crossorigin="anonymous">
       <span class="eq-name">Bush</span>
-    </div>
-    <div class="equipment-item" draggable="true" data-type="funnel-ball" data-icon="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Funnel%20ball.png" data-label="Funnel Ball">
-      <img class="eq-img" src="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Funnel%20ball.png" alt="Funnel Ball" crossorigin="anonymous">
-      <span class="eq-name">Funnel Ball</span>
-    </div>
-    <div class="equipment-item" draggable="true" data-type="gaga-ball" data-icon="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Gaga%20ball.png" data-label="Gaga Ball">
-      <img class="eq-img" src="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Gaga%20ball.png" alt="Gaga Ball" crossorigin="anonymous">
-      <span class="eq-name">Gaga Ball</span>
     </div>
     <div class="equipment-item" draggable="true" data-type="koi-pond" data-icon="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Koi%20pond.png" data-label="Koi Pond">
       <img class="eq-img" src="https://raw.githubusercontent.com/trbaker/buildAPark/main/icons/Koi%20pond.png" alt="Koi Pond" crossorigin="anonymous">
@@ -816,7 +820,7 @@
       </p>
       <p style="color:#80cbc4;font-weight:800;font-size:0.82rem;">
         Created by Tom Baker, Esri Education Team &nbsp;|&nbsp;
-        <a href="https://tbaker.com" target="_blank" style="color:#80cbc4;text-decoration:underline;">Learn more: tbaker.com</a>
+        <a href="https://trbaker.github.io/buildAPark" target="_blank" style="color:#80cbc4;text-decoration:underline;">Learn more: trbaker.github.io/buildAPark</a>
       </p>
     </div>
 
@@ -1208,7 +1212,7 @@ async function doScreenshot() {
     ctx.fillStyle = 'rgba(46,125,50,0.75)';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'bottom';
-    ctx.fillText('Build a Park v1.3', 10, canvas.height - 8);
+    ctx.fillText('Build a Park v1.4', 10, canvas.height - 8);
 
     // Restore hidden UI elements
     hideEls.forEach(el => el.style.visibility = '');
@@ -1765,7 +1769,7 @@ async function doSignIn() {
     wmForm.append('type', 'Web Map');
     wmForm.append('tags', 'park,playground,student design');
     wmForm.append('typeKeywords', 'Mapmaker,Atlas,0cd1cdee853c413a84bfe4b9a6931f0d,Web Map');
-    wmForm.append('description', `A park design created by ${arcgisUsername} using Build a Park v1.3`);
+    wmForm.append('description', `A park design created by ${arcgisUsername} using Build a Park v1.4`);
     wmForm.append('snippet', `Park with ${placedItems.length} equipment items: ${[...new Set(placedItems.map(i=>i.label))].join(', ')}`);
     wmForm.append('text', JSON.stringify(webmapJson));
     wmForm.append('extent', extent ? `${extent.xmin},${extent.ymin},${extent.xmax},${extent.ymax}` : '-125,24,-66,49');
