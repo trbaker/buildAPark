@@ -1,5 +1,5 @@
-App URL: <a href="park-designer.html"><b>Build A Park app</b></a>
-Home: <a href="https://trbaker.github.io/buildAPark/">https://trbaker.github.io/buildAPark/</a>
+App URL: <a href="park-designer.html"><b>Build A Park app</b></a><br>
+Home: <a href="https://trbaker.github.io/buildAPark/">https://trbaker.github.io/buildAPark/</a><br>
 A part of <a href="https://tbaker.com/atlas" target="new">the MapMaker's Toolbox</a>
 <br><br>
 Imagine your students designing their dream playground — not on paper, not in their heads, but on a real interactive map of their actual school grounds. That's exactly what Build a Park makes possible.
