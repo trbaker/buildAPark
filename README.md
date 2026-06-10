@@ -3,7 +3,7 @@ Student app link: <a href="park-designer.html"><b>Build A Park app</b></a> <br><
 Short URL to share: https://esriurl.com/buildapark<br>
 Teacher link: <a href="https://trbaker.github.io/buildAPark/">https://trbaker.github.io/buildAPark/</a><br>
 A part of <a href="https://tbaker.com/atlas" target="new">the MapMaker's Toolbox</a><br>
-Created by Claude and <a href="https://tbaker.com">Tom Baker</a>, Esri Education Team. Send questions/issues to tbaekr@esri.com
+Created by Claude and <a href="https://tbaker.com">Tom Baker</a>, tbaker@esri.com, Esri Education Team.
 <br><br>
 
 Imagine your students designing their dream playground — not on paper, not in their heads, but on a real interactive map of their actual school grounds. That's exactly what Build a Park makes possible.
