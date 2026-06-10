@@ -1,5 +1,5 @@
 
-App link: <a href="park-designer.html"><b>Build A Park app</b></a> <br>
+Student app link: <a href="park-designer.html"><b>Build A Park app</b></a> <br><br>
 Short URL to share: https://esriurl.com/buildapark<br>
 Teacher link: <a href="https://trbaker.github.io/buildAPark/">https://trbaker.github.io/buildAPark/</a><br>
 A part of <a href="https://tbaker.com/atlas" target="new">the MapMaker's Toolbox</a><br>
