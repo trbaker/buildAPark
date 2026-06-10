@@ -1,5 +1,5 @@
 
-Student "Build a Park" link: <a href="park-designer.html"><b>https://trbaker.github.io/buildAPark</b></a> <br>
+Student "Build a Park" link: <a href="park-designer.html">https://trbaker.github.io/buildAPark/park-designer.html</a> <br>
 
 Teacher link: <a href="https://trbaker.github.io/buildAPark/">https://trbaker.github.io/buildAPark/</a><br>
 A part of <a href="https://tbaker.com/atlas" target="new">the MapMaker's Toolbox</a><br>
